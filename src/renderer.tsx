@@ -72,7 +72,9 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
                       key={date}
                       title={label}
                       aria-label={label}
-                      onClick={() => handleToggle(habit, date)}
+                      onClick={() => {
+                        void handleToggle(habit, date);
+                      }}
                       type="button"
                     >
                       {cell.active ? <span className="quiddity-mark">{cell.end ? cell.length : ""}</span> : null}
