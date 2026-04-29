@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-quiddity",
+  "name": "Quiddity",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Render compact Markdown habit blocks as interactive glassy timelines.",
+  "author": "Arta",
+  "isDesktopOnly": false
+}
