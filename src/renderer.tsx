@@ -1,7 +1,7 @@
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import { Notice } from "obsidian";
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { parseQuiddity, toDisplayDay } from "./parser";
 import { replaceQuiddityBlockInFile, toggleHabitDateInSource } from "./updater";
 
@@ -31,10 +31,15 @@ type DateMeta = {
   prettyDate: string;
 };
 
+const scrollPositions = new Map<string, number>();
+
 export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps) {
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollKeyRef = useRef("");
   const [currentSource, setCurrentSource] = useState(source);
   const [isUpdating, setIsUpdating] = useState(false);
   const parsed = useMemo(() => parseQuiddity(currentSource), [currentSource]);
+  const isLivePreview = useMemo(() => detectLivePreview(el), [el]);
   const dateMetas = useMemo(() => buildDateMetas(parsed.timeline), [parsed.timeline]);
   const rows = useMemo(() => buildRows(parsed.config.habits, parsed.timeline), [
     parsed.config.habits,
@@ -46,6 +51,28 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
     setCurrentSource(source);
   }, [source]);
 
+  useLayoutEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const key = getScrollPositionKey(ctx, el, scrollKeyRef.current);
+    scrollKeyRef.current = key;
+
+    const scrollLeft = scrollPositions.get(key);
+    if (typeof scrollLeft === "number") {
+      scrollContainer.scrollLeft = scrollLeft;
+    }
+  }, [ctx, currentSource, el, parsed.timeline.length]);
+
+  function saveScrollPosition() {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const key = scrollKeyRef.current || getScrollPositionKey(ctx, el, "");
+    scrollKeyRef.current = key;
+    scrollPositions.set(key, scrollContainer.scrollLeft);
+  }
+
   async function handleToggle(habitName: string, date: string) {
     if (isUpdating) return;
 
@@ -55,10 +82,16 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
       return;
     }
 
+    saveScrollPosition();
+    const previousSource = currentSource;
+    setCurrentSource(nextSource);
     setIsUpdating(true);
     try {
       const didReplace = await replaceQuiddityBlockInFile(app, ctx, el, nextSource);
-      if (didReplace) setCurrentSource(nextSource);
+      if (!didReplace) setCurrentSource(previousSource);
+    } catch (error) {
+      setCurrentSource(previousSource);
+      throw error;
     } finally {
       setIsUpdating(false);
     }
@@ -77,15 +110,25 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
       )}
 
       <div
-        className="quiddity-habit-tracker__scroll"
+        className="quiddity-habit-tracker__table"
         style={{
           "--quiddity-habit-date-columns": parsed.timeline.length,
           "--quiddity-habit-name-width": `clamp(96px, ${longestHabitName + 3}ch, var(--quiddity-habit-name-max-width))`
         } as CSSProperties}
       >
-        <div className="quiddity-habit-tracker__grid">
-          <div className="quiddity-habit-tracker__row quiddity-habit-tracker__row--header">
-            <div className="quiddity-habit-tracker__cell quiddity-habit-tracker__cell--name quiddity-habit-tracker__cell--corner" aria-hidden="true" />
+        <div className="quiddity-habit-tracker__names">
+          <div className="quiddity-habit-tracker__cell quiddity-habit-tracker__cell--name quiddity-habit-tracker__cell--corner" aria-hidden="true" />
+          {rows.map((row) => (
+            <HabitName key={row.name} name={row.name} />
+          ))}
+        </div>
+
+        <div
+          className="quiddity-habit-tracker__timeline"
+          ref={scrollContainerRef}
+          onScroll={saveScrollPosition}
+        >
+          <div className="quiddity-habit-tracker__dates-grid">
             {dateMetas.map((dateMeta) => (
               <div
                 key={dateMeta.date}
@@ -96,58 +139,42 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
                 <span className="quiddity-habit-tracker__date-number">{dateMeta.day}</span>
               </div>
             ))}
+
+            {rows.map((row) => row.cells.map((cell) => (
+              <button
+                key={`${row.name}-${cell.date}`}
+                aria-label={`${row.name} ${cell.date} ${cell.active ? "completed" : "not completed"}`}
+                className={cell.className}
+                disabled={isUpdating}
+                onClick={() => void handleToggle(row.name, cell.date)}
+                title={`${row.name} - ${cell.date}`}
+                type="button"
+              >
+                <span className="quiddity-habit-tick__inner">{cell.label}</span>
+              </button>
+            )))}
           </div>
-
-          {rows.map((row) => (
-            <HabitRow
-              key={row.name}
-              disabled={isUpdating}
-              row={row}
-              onToggle={handleToggle}
-            />
-          ))}
         </div>
       </div>
 
-      <div className="quiddity-action-bar" aria-hidden="true">
-        <span className="quiddity-action-bar__title">Quiddity Habit Tracker</span>
-        <div className="quiddity-action-bar__buttons">
-          <button className="quiddity-action-bar__button" disabled type="button">Updates</button>
-          <button className="quiddity-action-bar__button" disabled type="button">Edit block</button>
-          <button className="quiddity-action-bar__button" disabled type="button">Settings</button>
+      {isLivePreview && (
+        <div className="quiddity-action-bar" aria-hidden="true">
+          <span className="quiddity-action-bar__title">Quiddity Habit Tracker</span>
+          <div className="quiddity-action-bar__buttons">
+            <button className="quiddity-action-bar__button" disabled type="button">Updates</button>
+            <button className="quiddity-action-bar__button" disabled type="button">Edit block</button>
+            <button className="quiddity-action-bar__button" disabled type="button">Settings</button>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
 
-function HabitRow({
-  disabled,
-  onToggle,
-  row
-}: {
-  disabled: boolean;
-  onToggle: (habitName: string, date: string) => Promise<void>;
-  row: RowModel;
-}) {
+function HabitName({ name }: { name: string }) {
   return (
-    <div className="quiddity-habit-tracker__row">
-      <div className="quiddity-habit-tracker__cell quiddity-habit-tracker__cell--name" title={row.name}>
-        {row.name}
-      </div>
-      {row.cells.map((cell) => (
-        <button
-          key={`${row.name}-${cell.date}`}
-          aria-label={`${row.name} ${cell.date} ${cell.active ? "completed" : "not completed"}`}
-          className={cell.className}
-          disabled={disabled}
-          onClick={() => void onToggle(row.name, cell.date)}
-          title={`${row.name} - ${cell.date}`}
-          type="button"
-        >
-          <span className="quiddity-habit-tick__inner">{cell.label}</span>
-        </button>
-      ))}
+    <div className="quiddity-habit-tracker__cell quiddity-habit-tracker__cell--name" title={name}>
+      <span className="quiddity-habit-tracker__name-text">{name}</span>
     </div>
   );
 }
@@ -255,4 +282,20 @@ function toLocalDateKey(date: Date): string {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0")
   ].join("-");
+}
+
+function detectLivePreview(el: HTMLElement): boolean {
+  const modeElement = el.closest(".cm-preview-code-block, .cm-editor, .markdown-source-view, .markdown-reading-view, .markdown-preview-view");
+  if (!modeElement) return false;
+
+  if (modeElement.matches(".markdown-reading-view, .markdown-preview-view")) return false;
+  return modeElement.matches(".cm-preview-code-block, .cm-editor, .markdown-source-view");
+}
+
+function getScrollPositionKey(ctx: MarkdownPostProcessorContext, el: HTMLElement, fallback: string): string {
+  const section = ctx.getSectionInfo(el);
+  if (section) return `${ctx.sourcePath}:${section.lineStart}`;
+  if (fallback) return fallback;
+
+  return `${ctx.sourcePath}:${ctx.docId}`;
 }
