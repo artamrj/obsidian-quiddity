@@ -76,10 +76,10 @@ assert.deepEqual(parsedBlock.config.habits[1].entries, [
 ]);
 
 const added = updater.toggleHabitDateInSource(habitsBlock, "Vitamins", "2026-02-04");
-assert.match(added, /  - Vitamins: .*2026-02-02\.\.2026-02-04/);
+assert.match(added, / {2}- Vitamins: .*2026-02-02\.\.2026-02-04/);
 
 const removed = updater.toggleHabitDateInSource(added, "Vitamins", "2026-01-30");
 assert.match(removed, /2026-01-29, 2026-01-31/);
-assert.match(removed, /  - Vitamins:/);
+assert.match(removed, / {2}- Vitamins:/);
 
 console.log("parser-updater tests passed");

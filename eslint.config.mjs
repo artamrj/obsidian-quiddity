@@ -7,7 +7,9 @@ export default defineConfig([
     ignores: [
       "main.js",
       "node_modules/**",
-      ".test-dist/**"
+      ".test-dist/**",
+      ".git/**",
+      ".DS_Store"
     ]
   },
   ...obsidianmd.configs.recommended,
@@ -24,6 +26,19 @@ export default defineConfig([
     },
     rules: {
       "obsidianmd/ui/sentence-case": "off"
+    }
+  },
+  {
+    files: ["*.mjs", "tests/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly"
+      }
+    },
+    rules: {
+      "obsidianmd/no-nodejs-modules": "off",
+      "obsidianmd/prefer-active-window-timers": "off"
     }
   }
 ]);
