@@ -1,20 +1,23 @@
-import type { Habit, ParsedQuiddity, ParseDiagnostic, SourceDocument, SourceHabitLine, SourceMetaLine } from "./types";
+import { TomlDate, parse as parseToml } from "smol-toml";
+import type { Habit, ParsedQuiddity, ParseDiagnostic, SourceDocument, SourceHabitLine } from "./types";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const SUPPORTED_META_KEYS = new Set(["from", "days"]);
+
+type DateParts = {
+  year: number;
+  month: number;
+  day: number;
+};
+
+type TomlRecord = Record<string, unknown>;
 
 export function parseQuiddity(source: string, today = new Date()): ParsedQuiddity {
-  const document = analyzeSource(source);
   const diagnostics: ParseDiagnostic[] = [];
-  const meta = parseMeta(document.metaLines, diagnostics);
-  const from = normalizeDate(meta.from ?? toDateKey(today)) ?? toDateKey(today);
-  const days = Math.max(1, Number.parseInt(meta.days ?? "21", 10) || 21);
+  const document = parseTomlDocument(source, diagnostics);
+  const from = readFrom(document.from, diagnostics, today);
+  const days = readDays(document.days, diagnostics);
   const timeline = buildTimeline(from, days);
-  const habits = document.habitLines.map((line) => parseHabitLine(line, diagnostics));
-
-  if (document.habitLines.length === 0) {
-    diagnostics.push({ line: 1, message: "Expected a canonical habits: block with habit entries." });
-  }
+  const habits = readHabits(document.habits, diagnostics);
 
   return {
     config: {
@@ -28,42 +31,9 @@ export function parseQuiddity(source: string, today = new Date()): ParsedQuiddit
 }
 
 export function analyzeSource(source: string): SourceDocument {
-  const lines = source.replace(/\r\n/g, "\n").split("\n");
-  const habitsIndex = lines.findIndex((line) => line.trim() === "habits:");
-  const metaLines: SourceMetaLine[] = [];
-  const habitLines: SourceHabitLine[] = [];
-
-  lines.forEach((line, index) => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed === "habits:") return;
-
-    if (habitsIndex >= 0 && index > habitsIndex) {
-      const habitMatch = line.match(/^(\s*)-\s+([^:]+):\s*(.*)$/);
-      if (habitMatch) {
-        habitLines.push({
-          name: habitMatch[2].trim(),
-          entriesText: habitMatch[3].trim(),
-          lineIndex: index,
-          indent: habitMatch[1]
-        });
-      }
-      return;
-    }
-
-    const metaMatch = line.match(/^\s*([^:]+):\s*(.*)$/);
-    if (metaMatch) {
-      metaLines.push({
-        key: metaMatch[1].trim(),
-        value: metaMatch[2].trim(),
-        lineIndex: index
-      });
-    }
-  });
-
   return {
     source,
-    metaLines,
-    habitLines
+    habitLines: findHabitLines(source)
   };
 }
 
@@ -79,14 +49,13 @@ export function buildTimeline(from: string, days: number): string[] {
   return result;
 }
 
-export function expandEntries(entriesText: string, diagnostics: ParseDiagnostic[] = [], line = 0): string[] {
+export function expandEntries(entries: string[], diagnostics: ParseDiagnostic[] = [], line = 0): string[] {
   const dateSet = new Set<string>();
-  const tokens = entriesText.split(",").map((part) => part.trim()).filter(Boolean);
 
-  for (const token of tokens) {
-    const expanded = expandToken(token);
+  for (const entry of entries) {
+    const expanded = expandToken(entry);
     if (expanded.length === 0) {
-      diagnostics.push({ line, message: `Could not parse entry "${token}". Use YYYY-MM-DD or YYYY-MM-DD..YYYY-MM-DD.` });
+      diagnostics.push({ line, message: `Could not parse entry "${entry}". Use YYYY-MM-DD or YYYY-MM-DD..YYYY-MM-DD.` });
       continue;
     }
 
@@ -117,6 +86,13 @@ export function serializeEntries(entries: string[]): string {
   return ranges.join(", ");
 }
 
+export function serializeEntriesArray(entries: string[]): string {
+  const serialized = serializeEntries(entries);
+  if (!serialized) return "[]";
+
+  return `[${serialized.split(", ").map((entry) => JSON.stringify(entry)).join(", ")}]`;
+}
+
 export function toDisplayDay(dateKey: string): string {
   const parts = parseDateKey(dateKey);
   return parts ? String(parts.day) : "";
@@ -134,38 +110,174 @@ export function compareDateKeys(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
-function parseMeta(lines: SourceMetaLine[], diagnostics: ParseDiagnostic[]): Record<string, string> {
-  const meta: Record<string, string> = {};
+function parseTomlDocument(source: string, diagnostics: ParseDiagnostic[]): TomlRecord {
+  try {
+    const document = parseToml(source);
+    return isRecord(document) ? document : {};
+  } catch (error) {
+    diagnostics.push({
+      line: getTomlErrorLine(error),
+      message: `Invalid TOML: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`
+    });
+    return {};
+  }
+}
 
-  for (const line of lines) {
-    if (!SUPPORTED_META_KEYS.has(line.key)) {
-      diagnostics.push({ line: line.lineIndex + 1, message: `Unsupported metadata key "${line.key}".` });
-      continue;
+function readFrom(value: unknown, diagnostics: ParseDiagnostic[], today: Date): string {
+  if (value === undefined) return toDateKey(today);
+
+  const date = value instanceof TomlDate ? value.toISOString() : value;
+  if (typeof date !== "string" || !normalizeDate(date)) {
+    diagnostics.push({ line: 1, message: "from must be an ISO date or a string in YYYY-MM-DD format." });
+    return toDateKey(today);
+  }
+
+  return date;
+}
+
+function readDays(value: unknown, diagnostics: ParseDiagnostic[]): number {
+  if (value === undefined) return 21;
+
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    diagnostics.push({ line: 1, message: "days must be a positive integer." });
+    return 21;
+  }
+
+  return value;
+}
+
+function readHabits(value: unknown, diagnostics: ParseDiagnostic[]): Habit[] {
+  if (!Array.isArray(value)) {
+    diagnostics.push({ line: 1, message: "habits must be an array of [name, entries] pairs." });
+    return [];
+  }
+
+  return value.reduce<Habit[]>((habits, habit, index) => [
+    ...habits,
+    ...readHabit(habit, index, diagnostics)
+  ], []);
+}
+
+function readHabit(value: unknown, index: number, diagnostics: ParseDiagnostic[]): Habit[] {
+  const line = index + 1;
+
+  if (!Array.isArray(value) || value.length !== 2) {
+    diagnostics.push({ line, message: `Habit ${index + 1} must be [name, entries].` });
+    return [];
+  }
+
+  const name: unknown = value[0];
+  const entries: unknown = value[1];
+  if (typeof name !== "string" || name.trim() === "") {
+    diagnostics.push({ line, message: `Habit ${index + 1} must have a non-empty string name.` });
+    return [];
+  }
+
+  if (!Array.isArray(entries)) {
+    diagnostics.push({ line, message: `Habit "${name}" entries must be an array of strings.` });
+    return [{ name, entries: [] }];
+  }
+
+  const stringEntries = entries.filter((entry): entry is string => typeof entry === "string");
+  if (stringEntries.length !== entries.length) {
+    diagnostics.push({ line, message: `Habit "${name}" entries must contain only strings.` });
+  }
+
+  return [{
+    name,
+    entries: expandEntries(stringEntries, diagnostics, line)
+  }];
+}
+
+function findHabitLines(source: string): SourceHabitLine[] {
+  const lines = source.replace(/\r\n/g, "\n").split("\n");
+  const habitsStart = lines.findIndex((line) => /^\s*habits\s*=/.test(line));
+  if (habitsStart < 0) return [];
+
+  const habitsEnd = findArrayEndLine(lines, habitsStart);
+  const names = readSourceHabitNames(source);
+  const result: SourceHabitLine[] = [];
+  let habitIndex = 0;
+
+  for (let index = habitsStart + 1; index <= habitsEnd; index += 1) {
+    const line = lines[index];
+    const match = line.match(/^(\s*)\[/);
+    if (!match) continue;
+
+    const lineEnd = findArrayItemEndLine(lines, index);
+    const name = names[habitIndex] ?? readInlineHabitName(line);
+    habitIndex += 1;
+    if (!name) continue;
+
+    result.push({
+      name,
+      lineStart: index,
+      lineEnd,
+      indent: match[1]
+    });
+    index = lineEnd;
+  }
+
+  return result;
+}
+
+function readSourceHabitNames(source: string): string[] {
+  try {
+    const document = parseToml(source);
+    if (!isRecord(document)) return [];
+    if (!Array.isArray(document.habits)) return [];
+
+    return document.habits.reduce<string[]>((names, habit) => {
+      if (!Array.isArray(habit) || typeof habit[0] !== "string") return [];
+      return [...names, habit[0]];
+    }, []);
+  } catch {
+    return [];
+  }
+}
+
+function readInlineHabitName(line: string): string | null {
+  const match = line.match(/^\s*\[\s*(["'])(.*?)\1\s*,/);
+  return match?.[2] ?? null;
+}
+
+function findArrayItemEndLine(lines: string[], start: number): number {
+  let balance = 0;
+
+  for (let index = start; index < lines.length; index += 1) {
+    for (const char of lines[index]) {
+      if (char === "[") balance += 1;
+      if (char === "]") balance -= 1;
     }
 
-    meta[line.key] = line.value;
+    if (balance <= 0) return index;
   }
 
-  if (meta.from && !normalizeDate(meta.from)) {
-    diagnostics.push({ line: findMetaLine(lines, "from"), message: "from must use YYYY-MM-DD." });
-  }
-
-  if (meta.days && (!/^\d+$/.test(meta.days) || Number.parseInt(meta.days, 10) < 1)) {
-    diagnostics.push({ line: findMetaLine(lines, "days"), message: "days must be a positive whole number." });
-  }
-
-  return meta;
+  return start;
 }
 
-function findMetaLine(lines: SourceMetaLine[], key: string): number {
-  return (lines.find((line) => line.key === key)?.lineIndex ?? 0) + 1;
+function findArrayEndLine(lines: string[], start: number): number {
+  let balance = 0;
+
+  for (let index = start; index < lines.length; index += 1) {
+    for (const char of lines[index]) {
+      if (char === "[") balance += 1;
+      if (char === "]") balance -= 1;
+    }
+
+    if (balance <= 0) return index;
+  }
+
+  return start;
 }
 
-function parseHabitLine(line: SourceHabitLine, diagnostics: ParseDiagnostic[]): Habit {
-  return {
-    name: line.name,
-    entries: expandEntries(line.entriesText, diagnostics, line.lineIndex + 1)
-  };
+function getTomlErrorLine(error: unknown): number {
+  if (isRecord(error) && typeof error.line === "number") return error.line;
+  return 1;
+}
+
+function isRecord(value: unknown): value is TomlRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function expandToken(token: string): string[] {
@@ -196,12 +308,6 @@ function expandDateRange(start: string, end: string): string[] {
 
   return result;
 }
-
-type DateParts = {
-  year: number;
-  month: number;
-  day: number;
-};
 
 function normalizeDate(value: string): string | null {
   if (!ISO_DATE.test(value)) return null;

@@ -22,7 +22,8 @@
   "license": "MIT",
   "dependencies": {
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "smol-toml": "^1.6.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

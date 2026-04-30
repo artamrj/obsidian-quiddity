@@ -21,13 +21,14 @@ execFileSync("npx", [
 const parser = await import(pathToFileURL(`${process.cwd()}/.test-dist/parser.mjs`));
 const updater = await import(pathToFileURL(`${process.cwd()}/.test-dist/updater.mjs`));
 
-const canonical = `from: 2026-01-16
-days: 21
+const canonical = `from = 2026-01-16
+days = 21
 
-habits:
-  - Exercise: 2026-01-16..2026-01-18, 2026-01-21, 2026-01-23
-  - Reading: 2026-01-17, 2026-01-17, 2026-01-19
-  - Vitamins: nope, 2026-01-20..2026-01-22`;
+habits = [
+  ["Exercise", ["2026-01-16..2026-01-18", "2026-01-21", "2026-01-23"]],
+  ["Reading", ["2026-01-17", "2026-01-17", "2026-01-19"]],
+  ["Vitamins", ["nope", "2026-01-20..2026-01-22"]],
+]`;
 
 const parsed = parser.parseQuiddity(canonical, new Date(Date.UTC(2026, 0, 16)));
 assert.equal(parsed.config.from, "2026-01-16");
@@ -53,31 +54,50 @@ assert.deepEqual(parsed.config.habits[2].entries, [
 assert.equal(parsed.diagnostics.length, 1);
 assert.match(parsed.diagnostics[0].message, /Could not parse entry/);
 
-const invalidMeta = parser.parseQuiddity(`title: Life System
-theme: violet
-from: no
-days: 0
+const quotedFrom = parser.parseQuiddity(`from = "2026-01-16"
+days = 2
+habits = [["Exercise", ["2026-01-16"]]]`);
+assert.equal(quotedFrom.config.from, "2026-01-16");
+
+const invalidToml = parser.parseQuiddity(`from: 2026-01-16
+days: 3
 
 habits:
   - Exercise: 2026-01-16`);
-assert.equal(invalidMeta.diagnostics.length, 4);
-assert.match(invalidMeta.diagnostics[0].message, /Unsupported metadata key "title"/);
-assert.match(invalidMeta.diagnostics[1].message, /Unsupported metadata key "theme"/);
-assert.match(invalidMeta.diagnostics[2].message, /from must use YYYY-MM-DD/);
-assert.match(invalidMeta.diagnostics[3].message, /days must be a positive whole number/);
+assert.equal(invalidToml.config.habits.length, 0);
+assert.match(invalidToml.diagnostics[0].message, /Invalid TOML/);
 
-const oldCompact = parser.parseQuiddity(`from: 2026-01-16
-days: 3
+const invalidTypes = parser.parseQuiddity(`from = 123
+days = "21"
+habits = "Exercise"`);
+assert.equal(invalidTypes.diagnostics.length, 3);
+assert.match(invalidTypes.diagnostics[0].message, /from must be/);
+assert.match(invalidTypes.diagnostics[1].message, /days must be/);
+assert.match(invalidTypes.diagnostics[2].message, /habits must be/);
 
-Exercise: 2026-01-16`);
-assert.equal(oldCompact.config.habits.length, 0);
-assert.match(oldCompact.diagnostics.at(-1).message, /Expected a canonical habits: block/);
+const invalidHabits = parser.parseQuiddity(`from = 2026-01-16
+days = 3
+habits = [
+  ["Exercise"],
+  [123, ["2026-01-16"]],
+  ["Reading", [2026-01-16]],
+  ["Vitamins", "2026-01-16"],
+]`);
+assert.equal(invalidHabits.config.habits.length, 2);
+assert.equal(invalidHabits.diagnostics.length, 4);
+assert.match(invalidHabits.diagnostics[0].message, /must be \[name, entries\]/);
+assert.match(invalidHabits.diagnostics[1].message, /non-empty string name/);
+assert.match(invalidHabits.diagnostics[2].message, /entries must contain only strings/);
+assert.match(invalidHabits.diagnostics[3].message, /entries must be an array/);
 
-const shortcuts = parser.parseQuiddity(`from: 2026-01-16
-days: 3
+const missingHabits = parser.parseQuiddity(`from = 2026-01-16
+days = 3`);
+assert.equal(missingHabits.config.habits.length, 0);
+assert.match(missingHabits.diagnostics[0].message, /habits must be/);
 
-habits:
-  - Exercise: 16, 2026-01-16..+3, 2026-01-18..2026-01-17`);
+const shortcuts = parser.parseQuiddity(`from = 2026-01-16
+days = 3
+habits = [["Exercise", ["16", "2026-01-16..+3", "2026-01-18..2026-01-17"]]]`);
 assert.equal(shortcuts.config.habits[0].entries.length, 0);
 assert.equal(shortcuts.diagnostics.length, 3);
 
@@ -88,21 +108,42 @@ assert.equal(parser.serializeEntries([
   "2026-01-18",
   "bad"
 ]), "2026-01-16..2026-01-18");
+assert.equal(parser.serializeEntriesArray([
+  "2026-01-17",
+  "2026-01-16",
+  "2026-01-18"
+]), `["2026-01-16..2026-01-18"]`);
 
 const added = updater.toggleHabitDateInSource(canonical, "Exercise", "2026-01-19");
-assert.match(added, /^ {2}- Exercise: 2026-01-16\.\.2026-01-19, 2026-01-21, 2026-01-23/m);
+assert.match(added, /^ {2}\["Exercise", \["2026-01-16\.\.2026-01-19", "2026-01-21", "2026-01-23"\]\],/m);
+assert.match(added, /^\s+\["Reading"/m);
 
 const removed = updater.toggleHabitDateInSource(added, "Exercise", "2026-01-17");
-assert.match(removed, /^ {2}- Exercise: 2026-01-16, 2026-01-18\.\.2026-01-19, 2026-01-21, 2026-01-23/m);
+assert.match(removed, /^ {2}\["Exercise", \["2026-01-16", "2026-01-18\.\.2026-01-19", "2026-01-21", "2026-01-23"\]\],/m);
+
+const multiline = `from = 2026-01-16
+days = 3
+habits = [
+  [
+    "Exercise",
+    [
+      "2026-01-16",
+      "2026-01-18",
+    ],
+  ],
+]`;
+const normalized = updater.toggleHabitDateInSource(multiline, "Exercise", "2026-01-17");
+assert.match(normalized, /^ {2}\["Exercise", \["2026-01-16\.\.2026-01-18"\]\],/m);
+assert.doesNotMatch(normalized, /^\s+"2026-01-18",/m);
 
 const noteContent = `Before
 
 \`\`\`quiddity
-from: 2026-01-16
-days: 3
-
-habits:
-  - Exercise: 2026-01-16
+from = 2026-01-16
+days = 3
+habits = [
+  ["Exercise", ["2026-01-16"]],
+]
 \`\`\`
 
 After`;
@@ -133,21 +174,21 @@ const replaced = await updater.replaceQuiddityBlockInFile(
   fakeApp,
   fakeCtx,
   {},
-  `from: 2026-01-16
-days: 3
-
-habits:
-  - Exercise: 2026-01-16..2026-01-18`
+  `from = 2026-01-16
+days = 3
+habits = [
+  ["Exercise", ["2026-01-16..2026-01-18"]],
+]`
 );
 assert.equal(replaced, true);
 assert.equal(modifiedContent, `Before
 
 \`\`\`quiddity
-from: 2026-01-16
-days: 3
-
-habits:
-  - Exercise: 2026-01-16..2026-01-18
+from = 2026-01-16
+days = 3
+habits = [
+  ["Exercise", ["2026-01-16..2026-01-18"]],
+]
 \`\`\`
 
 After`);

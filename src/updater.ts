@@ -1,6 +1,6 @@
 import type { App, MarkdownPostProcessorContext, TFile } from "obsidian";
 import { Notice } from "obsidian";
-import { analyzeSource, parseQuiddity, serializeEntries } from "./parser";
+import { analyzeSource, parseQuiddity, serializeEntriesArray } from "./parser";
 
 export function toggleHabitDateInSource(source: string, habitName: string, date: string): string {
   const document = analyzeSource(source);
@@ -18,7 +18,11 @@ export function toggleHabitDateInSource(source: string, habitName: string, date:
     entries.add(date);
   }
 
-  lines[habitLine.lineIndex] = `${habitLine.indent}- ${habitLine.name}: ${serializeEntries(Array.from(entries))}`;
+  lines.splice(
+    habitLine.lineStart,
+    habitLine.lineEnd - habitLine.lineStart + 1,
+    `${habitLine.indent}[${JSON.stringify(habitLine.name)}, ${serializeEntriesArray(Array.from(entries))}],`
+  );
   return lines.join("\n");
 }
 

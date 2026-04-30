@@ -22,19 +22,12 @@ export type ParsedQuiddity = {
 
 export type SourceHabitLine = {
   name: string;
-  entriesText: string;
-  lineIndex: number;
+  lineStart: number;
+  lineEnd: number;
   indent: string;
 };
 
 export type SourceDocument = {
   source: string;
-  metaLines: SourceMetaLine[];
   habitLines: SourceHabitLine[];
-};
-
-export type SourceMetaLine = {
-  key: string;
-  value: string;
-  lineIndex: number;
 };
