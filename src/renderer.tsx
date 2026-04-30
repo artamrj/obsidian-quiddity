@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from "react";
+import React, { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import { formatTooltipDate, parseQuiddity, toDisplayDay } from "./parser";
 import { toggleHabitDateInFile, toggleHabitDateInSource } from "./updater";
@@ -21,55 +21,64 @@ type StreakCell = {
 
 type HabitRowView = {
   habit: Habit;
-  accent: string;
   cells: StreakCell[];
 };
 
-const THEME_COLORS: Record<string, string> = {
-  violet: "#a78bfa",
-  blue: "#60a5fa",
-  green: "#34d399"
-};
+const SCROLL_POSITIONS = new Map<string, number>();
 
 export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isWritingRef = useRef(false);
   const [currentSource, setCurrentSource] = useState(source);
-  const [pendingCell, setPendingCell] = useState<string | null>(null);
   const parsed = useMemo(() => parseQuiddity(currentSource), [currentSource]);
-  const accent = resolveTheme(parsed.config.theme);
-  const rows = useMemo(() => buildHabitRows(parsed.config.habits, parsed.timeline, accent), [accent, parsed.config.habits, parsed.timeline]);
+  const rows = useMemo(() => buildHabitRows(parsed.config.habits, parsed.timeline), [parsed.config.habits, parsed.timeline]);
+  const scrollKey = useMemo(() => getScrollKey(ctx, el), [ctx, el]);
   const gridStyle = useMemo(() => ({
-    "--quiddity-accent": accent,
     "--quiddity-days": parsed.timeline.length,
     gridTemplateColumns: `minmax(8.5rem, 11rem) repeat(${parsed.timeline.length}, var(--quiddity-cell-size))`
-  }) as React.CSSProperties, [accent, parsed.timeline.length]);
+  }) as React.CSSProperties, [parsed.timeline.length]);
 
-  async function handleToggle(habit: Habit, date: string) {
-    const cellKey = `${habit.name}:${date}`;
-    if (pendingCell === cellKey) return;
+  useLayoutEffect(() => {
+    const scrollLeft = SCROLL_POSITIONS.get(scrollKey);
+    if (scrollLeft !== undefined && scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollLeft;
+    }
+  }, [currentSource, scrollKey]);
 
-    setPendingCell(cellKey);
+  const handleToggle = useCallback(async (habit: Habit, date: string) => {
+    if (isWritingRef.current) return;
+
+    isWritingRef.current = true;
+    cacheScroll(scrollKey, scrollRef.current);
+    setCurrentSource((previous) => toggleHabitDateInSource(previous, habit.name, date));
 
     try {
       const changed = await toggleHabitDateInFile(app, ctx, el, habit.name, date);
-      if (changed) {
+      if (!changed) {
         setCurrentSource((previous) => toggleHabitDateInSource(previous, habit.name, date));
       }
+    } catch (error) {
+      setCurrentSource((previous) => toggleHabitDateInSource(previous, habit.name, date));
+      throw error;
     } finally {
-      setPendingCell(null);
+      cacheScroll(scrollKey, scrollRef.current);
+      isWritingRef.current = false;
     }
-  }
+  }, [app, ctx, el, scrollKey]);
 
   return (
-    <section className="quiddity-root" style={{ "--quiddity-accent": accent } as React.CSSProperties}>
-      <Header title={parsed.config.title} habits={rows.length} days={parsed.timeline.length} />
+    <section className="quiddity-root">
       <Diagnostics parsed={parsed} />
-      <div className="quiddity-scroll">
+      <div
+        className="quiddity-scroll"
+        onScroll={() => cacheScroll(scrollKey, scrollRef.current)}
+        ref={scrollRef}
+      >
         <div className="quiddity-grid" style={gridStyle}>
           <DateHeader timeline={parsed.timeline} />
           {rows.map((row) => (
             <HabitRow
               key={row.habit.name}
-              pendingCell={pendingCell}
               row={row}
               onToggle={handleToggle}
             />
@@ -77,17 +86,6 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
         </div>
       </div>
     </section>
-  );
-}
-
-function Header({ title, habits, days }: { title?: string; habits: number; days: number }) {
-  if (!title && habits === 0) return null;
-
-  return (
-    <div className="quiddity-header">
-      {title ? <h3 className="quiddity-title">{title}</h3> : <span />}
-      <div className="quiddity-meta">{habits} habits · {days} days</div>
-    </div>
   );
 }
 
@@ -116,24 +114,20 @@ function DateHeader({ timeline }: { timeline: string[] }) {
 
 const HabitRow = memo(function HabitRow({
   row,
-  pendingCell,
   onToggle
 }: {
   row: HabitRowView;
-  pendingCell: string | null;
   onToggle: (habit: Habit, date: string) => Promise<void>;
 }) {
   return (
     <>
-      <div className="quiddity-habit-name" style={{ "--quiddity-row-accent": row.accent } as React.CSSProperties}>{row.habit.name}</div>
+      <div className="quiddity-habit-name">{row.habit.name}</div>
       {row.cells.map((cell) => (
         <HabitCell
           cell={cell}
           habit={row.habit}
-          isPending={pendingCell === `${row.habit.name}:${cell.date}`}
           key={cell.date}
           onToggle={onToggle}
-          rowAccent={row.accent}
         />
       ))}
     </>
@@ -143,27 +137,21 @@ const HabitRow = memo(function HabitRow({
 const HabitCell = memo(function HabitCell({
   cell,
   habit,
-  isPending,
-  onToggle,
-  rowAccent
+  onToggle
 }: {
   cell: StreakCell;
   habit: Habit;
-  isPending: boolean;
   onToggle: (habit: Habit, date: string) => Promise<void>;
-  rowAccent: string;
 }) {
   const label = `${habit.name} · ${formatTooltipDate(cell.date)} · ${cell.active ? "done" : "empty"}`;
 
   return (
     <button
       aria-label={label}
-      className={cellClass(cell, isPending)}
-      disabled={isPending}
+      className={cellClass(cell)}
       onClick={() => {
         void onToggle(habit, cell.date);
       }}
-      style={{ "--quiddity-row-accent": rowAccent } as React.CSSProperties}
       title={label}
       type="button"
     >
@@ -172,10 +160,9 @@ const HabitCell = memo(function HabitCell({
   );
 });
 
-function buildHabitRows(habits: Habit[], timeline: string[], fallbackAccent: string): HabitRowView[] {
+function buildHabitRows(habits: Habit[], timeline: string[]): HabitRowView[] {
   return habits.map((habit) => ({
     habit,
-    accent: habit.color ?? fallbackAccent,
     cells: buildStreakCells(habit, timeline)
   }));
 }
@@ -214,17 +201,20 @@ function buildStreakCells(habit: Habit, timeline: string[]): StreakCell[] {
   return cells;
 }
 
-function cellClass(cell: StreakCell, pending: boolean): string {
+function cellClass(cell: StreakCell): string {
   const classes = ["quiddity-cell"];
   if (cell.active) classes.push("is-active");
   if (cell.start) classes.push("is-start");
   if (cell.end) classes.push("is-end");
   if (cell.length === 1) classes.push("is-single");
-  if (pending) classes.push("is-pending");
   return classes.join(" ");
 }
 
-function resolveTheme(theme: string): string {
-  if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(theme)) return theme;
-  return THEME_COLORS[theme] ?? THEME_COLORS.violet;
+function cacheScroll(key: string, element: HTMLDivElement | null): void {
+  if (element) SCROLL_POSITIONS.set(key, element.scrollLeft);
+}
+
+function getScrollKey(ctx: MarkdownPostProcessorContext, el: HTMLElement): string {
+  const section = ctx.getSectionInfo(el);
+  return section ? `${ctx.sourcePath}:${section.lineStart}:${section.lineEnd}` : ctx.sourcePath;
 }
