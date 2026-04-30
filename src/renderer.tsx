@@ -2,7 +2,7 @@ import type { App, MarkdownPostProcessorContext } from "obsidian";
 import { Notice } from "obsidian";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { formatTooltipDate, parseQuiddity, toDisplayDay } from "./parser";
+import { parseQuiddity, toDisplayDay } from "./parser";
 import { replaceQuiddityBlockInFile, toggleHabitDateInSource } from "./updater";
 
 export type QuiddityRendererProps = {
@@ -16,6 +16,7 @@ type CellModel = {
   date: string;
   active: boolean;
   className: string;
+  label: string;
 };
 
 type RowModel = {
@@ -23,10 +24,18 @@ type RowModel = {
   cells: CellModel[];
 };
 
+type DateMeta = {
+  date: string;
+  day: string;
+  className: string;
+  prettyDate: string;
+};
+
 export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps) {
   const [currentSource, setCurrentSource] = useState(source);
   const [isUpdating, setIsUpdating] = useState(false);
   const parsed = useMemo(() => parseQuiddity(currentSource), [currentSource]);
+  const dateMetas = useMemo(() => buildDateMetas(parsed.timeline), [parsed.timeline]);
   const rows = useMemo(() => buildRows(parsed.config.habits, parsed.timeline), [
     parsed.config.habits,
     parsed.timeline
@@ -56,11 +65,11 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
   }
 
   return (
-    <section className="quiddity-root">
+    <section className="quiddity-habit-tracker">
       {parsed.diagnostics.length > 0 && (
         <div className="quiddity-diagnostics" role="status">
           {parsed.diagnostics.map((diagnostic, index) => (
-            <div key={`${diagnostic.line}-${index}`} className="mod-error">
+            <div key={`${diagnostic.line}-${index}`} className="quiddity-diagnostics__item quiddity-diagnostics__item--error">
               Line {diagnostic.line}: {diagnostic.message}
             </div>
           ))}
@@ -68,21 +77,26 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
       )}
 
       <div
-        className="quiddity-scroll"
+        className="quiddity-habit-tracker__scroll"
         style={{
-          "--quiddity-days": parsed.timeline.length,
-          "--quiddity-days-min-width": `${parsed.timeline.length * 28}px`,
-          "--quiddity-name-width": `clamp(96px, ${longestHabitName + 3}ch, var(--quiddity-name-max-width))`
+          "--quiddity-habit-date-columns": parsed.timeline.length,
+          "--quiddity-habit-name-width": `clamp(96px, ${longestHabitName + 3}ch, var(--quiddity-habit-name-max-width))`
         } as CSSProperties}
       >
-        <div className="quiddity-grid">
-          <div className="quiddity-corner" />
-          {parsed.timeline.map((date) => (
-            <div key={date} className="quiddity-date" title={date}>
-              <span>{toDisplayDay(date)}</span>
-              <small>{formatTooltipDate(date).split(" ")[0]}</small>
-            </div>
-          ))}
+        <div className="quiddity-habit-tracker__grid">
+          <div className="quiddity-habit-tracker__row quiddity-habit-tracker__row--header">
+            <div className="quiddity-habit-tracker__cell quiddity-habit-tracker__cell--name quiddity-habit-tracker__cell--corner" aria-hidden="true" />
+            {dateMetas.map((dateMeta) => (
+              <div
+                key={dateMeta.date}
+                className={dateMeta.className}
+                data-quiddity-pretty-date={dateMeta.prettyDate}
+                title={dateMeta.prettyDate}
+              >
+                <span className="quiddity-habit-tracker__date-number">{dateMeta.day}</span>
+              </div>
+            ))}
+          </div>
 
           {rows.map((row) => (
             <HabitRow
@@ -92,6 +106,15 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
               onToggle={handleToggle}
             />
           ))}
+        </div>
+      </div>
+
+      <div className="quiddity-action-bar" aria-hidden="true">
+        <span className="quiddity-action-bar__title">Quiddity Habit Tracker</span>
+        <div className="quiddity-action-bar__buttons">
+          <button className="quiddity-action-bar__button" disabled type="button">Updates</button>
+          <button className="quiddity-action-bar__button" disabled type="button">Edit block</button>
+          <button className="quiddity-action-bar__button" disabled type="button">Settings</button>
         </div>
       </div>
     </section>
@@ -108,8 +131,8 @@ function HabitRow({
   row: RowModel;
 }) {
   return (
-    <>
-      <div className="quiddity-habit-name" title={row.name}>
+    <div className="quiddity-habit-tracker__row">
+      <div className="quiddity-habit-tracker__cell quiddity-habit-tracker__cell--name" title={row.name}>
         {row.name}
       </div>
       {row.cells.map((cell) => (
@@ -121,9 +144,11 @@ function HabitRow({
           onClick={() => void onToggle(row.name, cell.date)}
           title={`${row.name} - ${cell.date}`}
           type="button"
-        />
+        >
+          <span className="quiddity-habit-tick__inner">{cell.label}</span>
+        </button>
       ))}
-    </>
+    </div>
   );
 }
 
@@ -137,20 +162,97 @@ function buildRows(habits: { name: string; entries: string[] }[], timeline: stri
         const active = activeDates.has(date);
         const previousActive = index > 0 && activeDates.has(timeline[index - 1]);
         const nextActive = index < timeline.length - 1 && activeDates.has(timeline[index + 1]);
+        const streakLength = active ? countStreakLength(activeDates, timeline, index) : 0;
+        const isStreak = active && (previousActive || nextActive);
         const className = [
-          "quiddity-cell",
-          active ? "is-active" : "",
-          active && previousActive ? "is-joined-before" : "",
-          active && nextActive ? "is-joined-after" : "",
-          active && !previousActive && !nextActive ? "is-single" : ""
+          "quiddity-habit-tracker__cell",
+          "quiddity-habit-tick",
+          active ? "quiddity-habit-tick--ticked" : "",
+          active && !previousActive && !nextActive ? "quiddity-habit-tick--single" : "",
+          isStreak ? "quiddity-habit-tick--streak" : "",
+          active && !previousActive && nextActive ? "quiddity-habit-tick--streak-start" : "",
+          active && previousActive && nextActive ? "quiddity-habit-tick--streak-middle" : "",
+          active && previousActive && !nextActive ? "quiddity-habit-tick--streak-end" : "",
+          isWeekendDate(date) ? "quiddity-habit-tick--weekend" : ""
         ].filter(Boolean).join(" ");
 
         return {
           date,
           active,
-          className
+          className,
+          label: active && previousActive && !nextActive && streakLength > 1 ? String(streakLength) : ""
         };
       })
     };
   });
+}
+
+function buildDateMetas(timeline: string[]): DateMeta[] {
+  const today = toLocalDateKey(new Date());
+
+  return timeline.map((date) => {
+    const isWeekend = isWeekendDate(date);
+    const className = [
+      "quiddity-habit-tracker__cell",
+      "quiddity-habit-tracker__cell--date",
+      isWeekend ? "quiddity-habit-tracker__cell--weekend" : "",
+      date === today ? "quiddity-habit-tracker__cell--today" : ""
+    ].filter(Boolean).join(" ");
+
+    return {
+      date,
+      day: toDisplayDay(date),
+      className,
+      prettyDate: formatPrettyDate(date)
+    };
+  });
+}
+
+function countStreakLength(activeDates: Set<string>, timeline: string[], index: number): number {
+  let start = index;
+  let end = index;
+
+  while (start > 0 && activeDates.has(timeline[start - 1])) start -= 1;
+  while (end < timeline.length - 1 && activeDates.has(timeline[end + 1])) end += 1;
+
+  return end - start + 1;
+}
+
+function isWeekendDate(dateKey: string): boolean {
+  const date = toUtcDate(dateKey);
+  if (!date) return false;
+
+  const day = date.getUTCDay();
+  return day === 0 || day === 6;
+}
+
+function formatPrettyDate(dateKey: string): string {
+  const date = toUtcDate(dateKey);
+  if (!date) return dateKey;
+
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+    weekday: "long",
+    year: "numeric"
+  }).format(date);
+}
+
+function toUtcDate(dateKey: string): Date | null {
+  const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function toLocalDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
 }
