@@ -21,91 +21,79 @@ execFileSync("npx", [
 const parser = await import(pathToFileURL(`${process.cwd()}/.test-dist/parser.mjs`));
 const updater = await import(pathToFileURL(`${process.cwd()}/.test-dist/updater.mjs`));
 
-const compact = `from: 2026-01-16
+const canonical = `from: 2026-01-16
 days: 21
-theme: violet
 
-Exercise: 16..18, 21, 23, 25, 27
-OSS: 24..25, 27, 29..+8
-Reading: nope`;
+habits:
+  - Exercise: 2026-01-16..2026-01-18, 2026-01-21, 2026-01-23
+  - Reading: 2026-01-17, 2026-01-17, 2026-01-19
+  - Vitamins: nope, 2026-01-20..2026-01-22`;
 
-const parsedCompact = parser.parseQuiddity(compact, new Date(Date.UTC(2026, 0, 16)));
-assert.equal(parsedCompact.sourceStyle, "compact");
-assert.equal(parsedCompact.timeline.at(0), "2026-01-16");
-assert.equal(parsedCompact.timeline.at(-1), "2026-02-05");
-assert.deepEqual(parsedCompact.config.habits[0].entries, [
+const parsed = parser.parseQuiddity(canonical, new Date(Date.UTC(2026, 0, 16)));
+assert.equal(parsed.config.from, "2026-01-16");
+assert.equal(parsed.config.days, 21);
+assert.equal(parsed.timeline.at(0), "2026-01-16");
+assert.equal(parsed.timeline.at(-1), "2026-02-05");
+assert.deepEqual(parsed.config.habits[0].entries, [
   "2026-01-16",
   "2026-01-17",
   "2026-01-18",
   "2026-01-21",
-  "2026-01-23",
-  "2026-01-25",
-  "2026-01-27"
+  "2026-01-23"
 ]);
-assert.deepEqual(parsedCompact.config.habits[1].entries.slice(-8), [
-  "2026-01-29",
-  "2026-01-30",
-  "2026-01-31",
-  "2026-02-01",
-  "2026-02-02",
-  "2026-02-03",
-  "2026-02-04",
-  "2026-02-05"
+assert.deepEqual(parsed.config.habits[1].entries, [
+  "2026-01-17",
+  "2026-01-19"
 ]);
-assert.equal(parsedCompact.diagnostics.length, 1);
-assert.match(parsedCompact.diagnostics[0].message, /Could not parse entry/);
+assert.deepEqual(parsed.config.habits[2].entries, [
+  "2026-01-20",
+  "2026-01-21",
+  "2026-01-22"
+]);
+assert.equal(parsed.diagnostics.length, 1);
+assert.match(parsed.diagnostics[0].message, /Could not parse entry/);
 
-const coloredHabit = parser.parseQuiddity(`from: 2026-01-16
+const invalidMeta = parser.parseQuiddity(`title: Life System
+theme: violet
+from: no
+days: 0
+
+habits:
+  - Exercise: 2026-01-16`);
+assert.equal(invalidMeta.diagnostics.length, 4);
+assert.match(invalidMeta.diagnostics[0].message, /Unsupported metadata key "title"/);
+assert.match(invalidMeta.diagnostics[1].message, /Unsupported metadata key "theme"/);
+assert.match(invalidMeta.diagnostics[2].message, /from must use YYYY-MM-DD/);
+assert.match(invalidMeta.diagnostics[3].message, /days must be a positive whole number/);
+
+const oldCompact = parser.parseQuiddity(`from: 2026-01-16
 days: 3
 
-Exercise [#7dd3fc]: 16, 16, 17`);
-assert.equal(coloredHabit.config.habits[0].name, "Exercise");
-assert.equal(coloredHabit.config.habits[0].color, "#7dd3fc");
-assert.deepEqual(coloredHabit.config.habits[0].entries, [
-  "2026-01-16",
-  "2026-01-17"
-]);
+Exercise: 2026-01-16`);
+assert.equal(oldCompact.config.habits.length, 0);
+assert.match(oldCompact.diagnostics.at(-1).message, /Expected a canonical habits: block/);
+
+const shortcuts = parser.parseQuiddity(`from: 2026-01-16
+days: 3
+
+habits:
+  - Exercise: 16, 2026-01-16..+3, 2026-01-18..2026-01-17`);
+assert.equal(shortcuts.config.habits[0].entries.length, 0);
+assert.equal(shortcuts.diagnostics.length, 3);
+
 assert.equal(parser.serializeEntries([
   "2026-01-17",
   "2026-01-16",
   "2026-01-16",
-  "2026-01-18"
+  "2026-01-18",
+  "bad"
 ]), "2026-01-16..2026-01-18");
 
-const habitsBlock = `title: Life System
-from: 2026-01-16
-days: 21
-theme: green
+const added = updater.toggleHabitDateInSource(canonical, "Exercise", "2026-01-19");
+assert.match(added, /^ {2}- Exercise: 2026-01-16\.\.2026-01-19, 2026-01-21, 2026-01-23/m);
 
-habits:
-  - Exercise: 2026-01-16..2026-01-18, 2026-01-21
-  - Vitamins: 23, 29..31, 2..3`;
-
-const parsedBlock = parser.parseQuiddity(habitsBlock);
-assert.equal(parsedBlock.sourceStyle, "habits-block");
-assert.equal(parsedBlock.config.title, "Life System");
-assert.deepEqual(parsedBlock.config.habits[1].entries, [
-  "2026-01-23",
-  "2026-01-29",
-  "2026-01-30",
-  "2026-01-31",
-  "2026-02-02",
-  "2026-02-03"
-]);
-
-const added = updater.toggleHabitDateInSource(habitsBlock, "Vitamins", "2026-02-04");
-assert.match(added, / {2}- Vitamins: .*2026-02-02\.\.2026-02-04/);
-
-const removed = updater.toggleHabitDateInSource(added, "Vitamins", "2026-01-30");
-assert.match(removed, /2026-01-29, 2026-01-31/);
-assert.match(removed, / {2}- Vitamins:/);
-
-const compactAdded = updater.toggleHabitDateInSource(compact, "Exercise", "2026-01-19");
-assert.match(compactAdded, /^Exercise: 2026-01-16\.\.2026-01-19/m);
-assert.doesNotMatch(compactAdded, /^- Exercise:/m);
-
-const blockAdded = updater.toggleHabitDateInSource(habitsBlock, "Exercise", "2026-01-22");
-assert.match(blockAdded, /^ {2}- Exercise: 2026-01-16\.\.2026-01-18, 2026-01-21\.\.2026-01-22/m);
+const removed = updater.toggleHabitDateInSource(added, "Exercise", "2026-01-17");
+assert.match(removed, /^ {2}- Exercise: 2026-01-16, 2026-01-18\.\.2026-01-19, 2026-01-21, 2026-01-23/m);
 
 const noteContent = `Before
 
@@ -113,7 +101,8 @@ const noteContent = `Before
 from: 2026-01-16
 days: 3
 
-Exercise: 2026-01-16
+habits:
+  - Exercise: 2026-01-16
 \`\`\`
 
 After`;
@@ -137,7 +126,7 @@ const fakeApp = {
 const fakeCtx = {
   sourcePath: fakeFile.path,
   getSectionInfo() {
-    return { lineStart: 2, lineEnd: 7 };
+    return { lineStart: 2, lineEnd: 8 };
   }
 };
 const replaced = await updater.replaceQuiddityBlockInFile(
@@ -147,7 +136,8 @@ const replaced = await updater.replaceQuiddityBlockInFile(
   `from: 2026-01-16
 days: 3
 
-Exercise: 2026-01-16..2026-01-18`
+habits:
+  - Exercise: 2026-01-16..2026-01-18`
 );
 assert.equal(replaced, true);
 assert.equal(modifiedContent, `Before
@@ -156,7 +146,8 @@ assert.equal(modifiedContent, `Before
 from: 2026-01-16
 days: 3
 
-Exercise: 2026-01-16..2026-01-18
+habits:
+  - Exercise: 2026-01-16..2026-01-18
 \`\`\`
 
 After`);
@@ -165,7 +156,7 @@ const missingSection = await updater.replaceQuiddityBlockInFile(
   fakeApp,
   { ...fakeCtx, getSectionInfo: () => null },
   {},
-  habitsBlock
+  canonical
 );
 assert.equal(missingSection, false);
 

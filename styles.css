@@ -1,10 +1,8 @@
 .quiddity-host {
-  margin: var(--size-4-3, 0.75rem) 0;
+  margin-block: var(--size-4-3);
 }
 
 .quiddity-root {
-  --quiddity-accent: var(--interactive-accent);
-  --quiddity-border: var(--background-modifier-border);
   --quiddity-cell-size: 1.65rem;
   --quiddity-row-height: 1.75rem;
   color: var(--text-normal);
@@ -14,23 +12,16 @@
 
 .quiddity-scroll {
   overflow: auto;
-  border: 1px solid var(--quiddity-border);
+  border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-s);
   background: var(--background-primary);
-  isolation: isolate;
   scrollbar-gutter: stable;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.quiddity-scroll::-webkit-scrollbar {
-  display: none;
 }
 
 .quiddity-grid {
   display: grid;
   min-width: max-content;
-  background: var(--quiddity-border);
+  background: var(--background-modifier-border);
   gap: 1px;
 }
 
@@ -46,44 +37,29 @@
 .quiddity-date {
   position: sticky;
   top: 0;
+  z-index: 2;
   background: var(--background-secondary);
-}
-
-.quiddity-date {
-  z-index: 1;
-  overflow: hidden;
 }
 
 .quiddity-corner,
 .quiddity-habit-name {
   position: sticky;
   left: 0;
-  background: var(--background-primary);
-  box-shadow: 1px 0 0 var(--quiddity-border);
-  isolation: isolate;
+  box-shadow: 1px 0 0 var(--background-modifier-border);
 }
 
 .quiddity-corner {
-  z-index: 10;
-  background: var(--background-secondary);
+  z-index: 3;
 }
 
 .quiddity-habit-name {
-  z-index: 8;
-}
-
-.quiddity-corner::after,
-.quiddity-habit-name::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: -2px;
-  bottom: 0;
-  width: 3px;
-  background: inherit;
-  border-right: 1px solid var(--quiddity-border);
-  pointer-events: none;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding-inline: var(--size-4-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quiddity-date {
@@ -96,24 +72,6 @@
   line-height: 1;
 }
 
-.quiddity-habit-name {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  overflow: hidden;
-  padding: 0 var(--size-4-2, 0.5rem);
-  color: var(--text-normal);
-  font-size: var(--font-ui-small);
-  font-weight: var(--font-medium, 500);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.quiddity-root.is-writing .quiddity-cell:hover,
-.quiddity-root.is-writing .quiddity-cell:focus-visible {
-  background: var(--background-primary);
-}
-
 .quiddity-cell {
   position: relative;
   appearance: none;
@@ -123,17 +81,19 @@
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: var(--background-primary);
   box-shadow: none;
   color: var(--text-on-accent);
   cursor: pointer;
   touch-action: manipulation;
-  user-select: none;
 }
 
 .quiddity-cell:hover,
 .quiddity-cell:focus-visible {
   background: var(--background-modifier-hover);
+}
+
+.quiddity-cell:disabled {
+  cursor: default;
 }
 
 .quiddity-cell:focus-visible {
@@ -149,7 +109,7 @@
   right: -1px;
   height: 0.75rem;
   transform: translateY(-50%);
-  background: var(--quiddity-accent);
+  background: var(--interactive-accent);
 }
 
 .quiddity-cell.is-start::before {
@@ -178,20 +138,20 @@
   justify-content: center;
   height: 100%;
   color: var(--text-on-accent);
-  font-size: 0.62rem;
-  font-weight: var(--font-bold, 700);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
   line-height: 1;
 }
 
 .quiddity-diagnostics {
-  margin-block-end: var(--size-2-2, 0.25rem);
-  padding: var(--size-2-2, 0.25rem) var(--size-4-2, 0.5rem);
-  border: 1px solid var(--background-modifier-error-border);
-  border-radius: var(--radius-s);
+  margin-block-end: var(--size-2-2);
   color: var(--text-error);
-  background: var(--background-modifier-error);
-  font-size: var(--font-ui-smaller);
-  line-height: var(--line-height-tight);
+}
+
+.quiddity-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: var(--size-2-1);
 }
 
 @media (max-width: 640px) {

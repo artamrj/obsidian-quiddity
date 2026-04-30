@@ -1,13 +1,7 @@
-import type { Habit, ParsedQuiddity, ParseDiagnostic, SourceDocument, SourceHabitLine } from "./types";
+import type { Habit, ParsedQuiddity, ParseDiagnostic, SourceDocument, SourceHabitLine, SourceMetaLine } from "./types";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-
-type DateParts = {
-  year: number;
-  month: number;
-  day: number;
-};
+const SUPPORTED_META_KEYS = new Set(["from", "days"]);
 
 export function parseQuiddity(source: string, today = new Date()): ParsedQuiddity {
   const document = analyzeSource(source);
@@ -15,75 +9,59 @@ export function parseQuiddity(source: string, today = new Date()): ParsedQuiddit
   const meta = parseMeta(document.metaLines, diagnostics);
   const from = normalizeDate(meta.from ?? toDateKey(today)) ?? toDateKey(today);
   const days = Math.max(1, Number.parseInt(meta.days ?? "21", 10) || 21);
-  const theme = meta.theme ?? "violet";
   const timeline = buildTimeline(from, days);
-  const habits = document.habitLines.map((line) => parseHabitLine(line, timeline, diagnostics));
+  const habits = document.habitLines.map((line) => parseHabitLine(line, diagnostics));
+
+  if (document.habitLines.length === 0) {
+    diagnostics.push({ line: 1, message: "Expected a canonical habits: block with habit entries." });
+  }
 
   return {
     config: {
-      title: meta.title,
       from,
       days,
-      theme,
       habits
     },
     timeline,
-    diagnostics,
-    sourceStyle: document.sourceStyle
+    diagnostics
   };
 }
 
 export function analyzeSource(source: string): SourceDocument {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   const habitsIndex = lines.findIndex((line) => line.trim() === "habits:");
-  const sourceStyle = habitsIndex >= 0 ? "habits-block" : "compact";
-  const metaLines: string[] = [];
+  const metaLines: SourceMetaLine[] = [];
   const habitLines: SourceHabitLine[] = [];
 
   lines.forEach((line, index) => {
     const trimmed = line.trim();
     if (!trimmed || trimmed === "habits:") return;
 
-    if (sourceStyle === "habits-block") {
-      if (index < habitsIndex) {
-        metaLines.push(line);
-        return;
-      }
-
-      const match = line.match(/^(\s*)-\s+([^:]+):\s*(.*)$/);
-      if (match) {
+    if (habitsIndex >= 0 && index > habitsIndex) {
+      const habitMatch = line.match(/^(\s*)-\s+([^:]+):\s*(.*)$/);
+      if (habitMatch) {
         habitLines.push({
-          name: match[2].trim(),
-          entriesText: match[3].trim(),
+          name: habitMatch[2].trim(),
+          entriesText: habitMatch[3].trim(),
           lineIndex: index,
-          indent: match[1],
-          bullet: true
+          indent: habitMatch[1]
         });
       }
       return;
     }
 
-    const match = line.match(/^(\s*)([^:]+):\s*(.*)$/);
-    if (!match) return;
-
-    const key = match[2].trim();
-    if (isMetaKey(key)) {
-      metaLines.push(line);
-      return;
+    const metaMatch = line.match(/^\s*([^:]+):\s*(.*)$/);
+    if (metaMatch) {
+      metaLines.push({
+        key: metaMatch[1].trim(),
+        value: metaMatch[2].trim(),
+        lineIndex: index
+      });
     }
-
-    habitLines.push({
-      name: key,
-      entriesText: match[3].trim(),
-      lineIndex: index,
-      indent: match[1],
-      bullet: false
-    });
   });
 
   return {
     source,
-    sourceStyle,
     metaLines,
     habitLines
   };
@@ -101,14 +79,14 @@ export function buildTimeline(from: string, days: number): string[] {
   return result;
 }
 
-export function expandEntries(entriesText: string, timeline: string[], diagnostics: ParseDiagnostic[] = [], line = 0): string[] {
+export function expandEntries(entriesText: string, diagnostics: ParseDiagnostic[] = [], line = 0): string[] {
   const dateSet = new Set<string>();
   const tokens = entriesText.split(",").map((part) => part.trim()).filter(Boolean);
 
   for (const token of tokens) {
-    const expanded = expandToken(token, timeline);
+    const expanded = expandToken(token);
     if (expanded.length === 0) {
-      diagnostics.push({ line, message: `Could not parse entry "${token}".` });
+      diagnostics.push({ line, message: `Could not parse entry "${token}". Use YYYY-MM-DD or YYYY-MM-DD..YYYY-MM-DD.` });
       continue;
     }
 
@@ -119,7 +97,7 @@ export function expandEntries(entriesText: string, timeline: string[], diagnosti
 }
 
 export function serializeEntries(entries: string[]): string {
-  const sorted = Array.from(new Set(entries)).sort(compareDateKeys);
+  const sorted = Array.from(new Set(entries.filter((entry) => normalizeDate(entry)))).sort(compareDateKeys);
   const ranges: string[] = [];
   let index = 0;
 
@@ -156,78 +134,55 @@ export function compareDateKeys(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
-function parseMeta(lines: string[], diagnostics: ParseDiagnostic[]): Record<string, string> {
+function parseMeta(lines: SourceMetaLine[], diagnostics: ParseDiagnostic[]): Record<string, string> {
   const meta: Record<string, string> = {};
 
-  lines.forEach((line, index) => {
-    const match = line.match(/^\s*([^:]+):\s*(.*)$/);
-    if (!match) return;
-
-    const key = match[1].trim();
-    if (!isMetaKey(key)) {
-      diagnostics.push({ line: index + 1, message: `Unknown metadata key "${key}".` });
-      return;
+  for (const line of lines) {
+    if (!SUPPORTED_META_KEYS.has(line.key)) {
+      diagnostics.push({ line: line.lineIndex + 1, message: `Unsupported metadata key "${line.key}".` });
+      continue;
     }
 
-    meta[key] = match[2].trim();
-  });
+    meta[line.key] = line.value;
+  }
+
+  if (meta.from && !normalizeDate(meta.from)) {
+    diagnostics.push({ line: findMetaLine(lines, "from"), message: "from must use YYYY-MM-DD." });
+  }
+
+  if (meta.days && (!/^\d+$/.test(meta.days) || Number.parseInt(meta.days, 10) < 1)) {
+    diagnostics.push({ line: findMetaLine(lines, "days"), message: "days must be a positive whole number." });
+  }
 
   return meta;
 }
 
-function parseHabitLine(line: SourceHabitLine, timeline: string[], diagnostics: ParseDiagnostic[]): Habit {
-  const entries = expandEntries(line.entriesText, timeline, diagnostics, line.lineIndex + 1);
-  const colorMatch = line.name.match(/^(.*?)\s+\[(#[0-9a-fA-F]{3,6})\]$/);
+function findMetaLine(lines: SourceMetaLine[], key: string): number {
+  return (lines.find((line) => line.key === key)?.lineIndex ?? 0) + 1;
+}
 
-  if (colorMatch && HEX_COLOR.test(colorMatch[2])) {
-    return {
-      name: colorMatch[1].trim(),
-      color: colorMatch[2],
-      entries
-    };
-  }
-
+function parseHabitLine(line: SourceHabitLine, diagnostics: ParseDiagnostic[]): Habit {
   return {
     name: line.name,
-    entries
+    entries: expandEntries(line.entriesText, diagnostics, line.lineIndex + 1)
   };
 }
 
-function expandToken(token: string, timeline: string[]): string[] {
+function expandToken(token: string): string[] {
   const rangeParts = token.split("..").map((part) => part.trim());
 
   if (rangeParts.length === 1) {
-    const date = resolveDateToken(rangeParts[0], timeline);
+    const date = normalizeDate(rangeParts[0]);
     return date ? [date] : [];
   }
 
   if (rangeParts.length !== 2) return [];
 
-  const start = resolveDateToken(rangeParts[0], timeline);
-  if (!start) return [];
-
-  if (/^\+\d+$/.test(rangeParts[1])) {
-    const length = Number.parseInt(rangeParts[1].slice(1), 10);
-    return expandDateRange(start, addDays(start, length - 1));
-  }
-
-  const end = resolveDateToken(rangeParts[1], timeline, start);
-  if (!end || compareDateKeys(start, end) > 0) return [];
+  const start = normalizeDate(rangeParts[0]);
+  const end = normalizeDate(rangeParts[1]);
+  if (!start || !end || compareDateKeys(start, end) > 0) return [];
 
   return expandDateRange(start, end);
-}
-
-function resolveDateToken(token: string, timeline: string[], rangeStart?: string): string | null {
-  if (ISO_DATE.test(token)) return normalizeDate(token);
-  if (!/^\d{1,2}$/.test(token)) return null;
-
-  const day = Number.parseInt(token, 10);
-  const candidates = timeline.filter((date) => parseDateKey(date)?.day === day);
-  if (candidates.length === 0) return null;
-  if (!rangeStart) return candidates[0];
-
-  const sameOrAfter = candidates.find((date) => compareDateKeys(date, rangeStart) >= 0);
-  return sameOrAfter ?? candidates[0];
 }
 
 function expandDateRange(start: string, end: string): string[] {
@@ -242,11 +197,15 @@ function expandDateRange(start: string, end: string): string[] {
   return result;
 }
 
-function isMetaKey(key: string): boolean {
-  return ["title", "from", "days", "theme"].includes(key);
-}
+type DateParts = {
+  year: number;
+  month: number;
+  day: number;
+};
 
 function normalizeDate(value: string): string | null {
+  if (!ISO_DATE.test(value)) return null;
+
   const parts = parseDateKey(value);
   return parts ? toDateKey(new Date(Date.UTC(parts.year, parts.month - 1, parts.day))) : null;
 }
