@@ -1,50 +1,63 @@
 .quiddity-host {
-  margin: 1rem 0;
+  margin: var(--size-4-3, 0.75rem) 0;
 }
 
 .quiddity-root {
-  --quiddity-bg: #090a0f;
-  --quiddity-panel: rgba(18, 19, 28, 0.86);
-  --quiddity-line: rgba(148, 163, 184, 0.18);
-  --quiddity-text: #d1d5db;
-  --quiddity-muted: #9ca3af;
-  --quiddity-accent: #a78bfa;
-  --quiddity-accent-strong: color-mix(in srgb, var(--quiddity-accent) 86%, white);
-  --quiddity-ink: #17111f;
-  color: var(--quiddity-text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --quiddity-accent: var(--interactive-accent);
+  --quiddity-row-accent: var(--quiddity-accent);
+  --quiddity-border: var(--background-modifier-border);
+  --quiddity-cell-size: 1.65rem;
+  --quiddity-row-height: 1.75rem;
+  color: var(--text-normal);
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-small);
+}
+
+.quiddity-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--size-4-2, 0.5rem);
+  margin-block-end: var(--size-2-2, 0.25rem);
 }
 
 .quiddity-title {
-  margin: 0 0 0.65rem;
-  color: var(--quiddity-accent-strong);
-  font-size: 1rem;
+  margin: 0;
+  color: var(--text-normal);
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold, 600);
   letter-spacing: 0;
+  line-height: var(--line-height-tight);
+}
+
+.quiddity-meta {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
 }
 
 .quiddity-scroll {
-  overflow-x: auto;
-  border: 1px solid var(--quiddity-line);
-  border-radius: 0.5rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
-    var(--quiddity-panel);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32);
+  overflow: auto;
+  border: 1px solid var(--quiddity-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  scrollbar-gutter: stable;
 }
 
 .quiddity-grid {
   display: grid;
   min-width: max-content;
-  background-color: var(--quiddity-bg);
+  background: var(--quiddity-border);
+  gap: 1px;
 }
 
 .quiddity-corner,
 .quiddity-date,
 .quiddity-habit-name,
 .quiddity-cell {
-  min-height: 2.35rem;
-  border-right: 1px solid var(--quiddity-line);
-  border-bottom: 1px solid var(--quiddity-line);
+  min-height: var(--quiddity-row-height);
+  background: var(--background-primary);
 }
 
 .quiddity-corner,
@@ -52,7 +65,7 @@
   position: sticky;
   top: 0;
   z-index: 3;
-  background: #0d0e15;
+  background: var(--background-secondary);
 }
 
 .quiddity-corner,
@@ -60,7 +73,6 @@
   position: sticky;
   left: 0;
   z-index: 4;
-  background: #0d0e15;
 }
 
 .quiddity-corner {
@@ -71,36 +83,57 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #cbd5e1;
-  font-size: 0.82rem;
-  font-weight: 700;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .quiddity-habit-name {
   display: flex;
   align-items: center;
-  padding: 0 1rem;
-  color: var(--quiddity-accent-strong);
-  font-size: 1rem;
-  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 var(--size-4-2, 0.5rem);
+  border-inline-start: 2px solid var(--quiddity-row-accent);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-medium, 500);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .quiddity-cell {
   position: relative;
   appearance: none;
+  width: var(--quiddity-cell-size);
+  min-width: var(--quiddity-cell-size);
+  margin: 0;
   padding: 0;
-  background: transparent;
+  border: 0;
+  border-radius: 0;
+  background: var(--background-primary);
+  box-shadow: none;
+  color: var(--text-on-accent);
   cursor: pointer;
-  color: var(--quiddity-ink);
 }
 
-.quiddity-cell:hover {
-  background: rgba(255, 255, 255, 0.045);
+.quiddity-cell:hover,
+.quiddity-cell:focus-visible {
+  background: var(--background-modifier-hover);
+}
+
+.quiddity-cell:focus-visible {
+  outline: 2px solid var(--background-modifier-border-focus);
+  outline-offset: -2px;
+}
+
+.quiddity-cell:disabled {
+  cursor: progress;
 }
 
 .quiddity-cell.is-pending {
-  opacity: 0.65;
+  opacity: 0.6;
 }
 
 .quiddity-cell.is-active::before {
@@ -109,27 +142,26 @@
   top: 50%;
   left: -1px;
   right: -1px;
-  height: 1.32rem;
+  height: 0.75rem;
   transform: translateY(-50%);
-  background: var(--quiddity-accent);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--quiddity-accent) 35%, transparent);
+  background: var(--quiddity-row-accent);
 }
 
 .quiddity-cell.is-start::before {
-  left: 0.5rem;
-  border-radius: 999px 0 0 999px;
+  left: 0.35rem;
+  border-radius: var(--radius-s) 0 0 var(--radius-s);
 }
 
 .quiddity-cell.is-end::before {
-  right: 0.5rem;
-  border-radius: 0 999px 999px 0;
+  right: 0.35rem;
+  border-radius: 0 var(--radius-s) var(--radius-s) 0;
 }
 
 .quiddity-cell.is-single::before {
   left: 50%;
   right: auto;
-  width: 1.32rem;
-  border-radius: 999px;
+  width: 0.75rem;
+  border-radius: 50%;
   transform: translate(-50%, -50%);
 }
 
@@ -140,27 +172,32 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  font-size: 0.78rem;
-  font-weight: 800;
+  color: var(--text-on-accent);
+  font-size: 0.62rem;
+  font-weight: var(--font-bold, 700);
+  line-height: 1;
 }
 
 .quiddity-diagnostics {
-  margin: 0 0 0.65rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  border-radius: 0.4rem;
-  color: #fcd34d;
-  background: rgba(120, 53, 15, 0.2);
-  font-size: 0.78rem;
+  margin-block-end: var(--size-2-2, 0.25rem);
+  padding: var(--size-2-2, 0.25rem) var(--size-4-2, 0.5rem);
+  border: 1px solid var(--background-modifier-error-border);
+  border-radius: var(--radius-s);
+  color: var(--text-error);
+  background: var(--background-modifier-error);
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
 }
 
 @media (max-width: 640px) {
-  .quiddity-grid {
-    grid-template-columns: minmax(9rem, 10rem) repeat(var(--quiddity-days), 2.2rem);
+  .quiddity-root {
+    --quiddity-cell-size: 1.5rem;
+    --quiddity-row-height: 1.65rem;
   }
 
-  .quiddity-habit-name {
-    padding: 0 0.75rem;
-    font-size: 0.88rem;
+  .quiddity-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--size-2-1, 0.125rem);
   }
 }
