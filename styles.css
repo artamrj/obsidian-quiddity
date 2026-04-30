@@ -1,7 +1,202 @@
 .quiddity-host {
-  margin-block: var(--size-4-3);
+  margin-block: 12px;
 }
 
 .quiddity-root {
-  min-height: 1px;
+  color: var(--text-normal);
+  font-family: var(--font-interface);
+  font-size: 12px;
+  line-height: 1.2;
+  --quiddity-name-width: 132px;
+  --quiddity-cell-size: 22px;
+  --quiddity-header-height: 34px;
+}
+
+.quiddity-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-block-end: 6px;
+}
+
+.quiddity-summary {
+  color: var(--text-muted);
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.quiddity-source-action {
+  align-items: center;
+  color: var(--text-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.quiddity-source-action:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.quiddity-diagnostics {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  margin-block-end: 8px;
+  padding: 6px 8px;
+}
+
+.quiddity-scroll {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  max-width: 100%;
+  overflow: auto;
+}
+
+.quiddity-grid {
+  display: grid;
+  grid-auto-rows: var(--quiddity-cell-size);
+  grid-template-columns: var(--quiddity-name-width) repeat(var(--quiddity-days), var(--quiddity-cell-size));
+  grid-template-rows: var(--quiddity-header-height);
+  min-width: max-content;
+  position: relative;
+}
+
+.quiddity-corner,
+.quiddity-date,
+.quiddity-habit-name {
+  background: var(--background-secondary);
+  border-color: var(--background-modifier-border);
+  border-style: solid;
+  color: var(--text-muted);
+  min-width: 0;
+  position: sticky;
+  z-index: 2;
+}
+
+.quiddity-corner {
+  border-width: 0 1px 1px 0;
+  grid-column: 1;
+  grid-row: 1;
+  height: var(--quiddity-header-height);
+  left: 0;
+  top: 0;
+  z-index: 4;
+}
+
+.quiddity-date {
+  align-items: center;
+  border-width: 0 0 1px 0;
+  display: flex;
+  flex-direction: column;
+  height: var(--quiddity-header-height);
+  justify-content: center;
+  top: 0;
+  z-index: 3;
+}
+
+.quiddity-date span {
+  color: var(--text-normal);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.quiddity-date small {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1;
+  margin-block-start: 2px;
+}
+
+.quiddity-habit-name {
+  align-items: center;
+  border-width: 0 1px 1px 0;
+  display: flex;
+  font-weight: 500;
+  left: 0;
+  overflow: hidden;
+  padding-inline: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quiddity-cell {
+  align-items: center;
+  appearance: none;
+  background: var(--background-primary);
+  border: 0;
+  border-block-end: 1px solid var(--background-modifier-border);
+  border-inline-end: 1px solid var(--background-modifier-border);
+  color: var(--text-on-accent);
+  cursor: pointer;
+  display: flex;
+  height: var(--quiddity-cell-size);
+  justify-content: center;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+  position: relative;
+  width: var(--quiddity-cell-size);
+}
+
+.quiddity-cell:hover {
+  background: var(--background-modifier-hover);
+}
+
+.quiddity-cell:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.quiddity-cell:disabled {
+  cursor: default;
+}
+
+.quiddity-cell.is-active::before {
+  background: var(--interactive-accent);
+  border-radius: var(--radius-s);
+  content: "";
+  height: 10px;
+  inset-inline: 5px;
+  position: absolute;
+}
+
+.quiddity-cell.is-active.is-joined-before::before {
+  border-bottom-left-radius: 0;
+  border-top-left-radius: 0;
+  inset-inline-start: -1px;
+}
+
+.quiddity-cell.is-active.is-joined-after::before {
+  border-bottom-right-radius: 0;
+  border-top-right-radius: 0;
+  inset-inline-end: -1px;
+}
+
+.quiddity-cell.is-active.is-single::before {
+  border-radius: var(--radius-s);
+  height: 8px;
+  inset-inline: 7px;
+}
+
+.quiddity-streak-length {
+  color: var(--text-on-accent);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 520px) {
+  .quiddity-root {
+    --quiddity-name-width: 104px;
+  }
 }
