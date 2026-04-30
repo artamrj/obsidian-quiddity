@@ -1,7 +1,7 @@
-import React, { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import { formatTooltipDate, parseQuiddity, toDisplayDay } from "./parser";
-import { toggleHabitDateInFile, toggleHabitDateInSource } from "./updater";
+import { replaceQuiddityBlockInFile, toggleHabitDateInSource } from "./updater";
 import type { Habit, ParsedQuiddity } from "./types";
 
 type QuiddityRendererProps = {
@@ -24,54 +24,120 @@ type HabitRowView = {
   cells: StreakCell[];
 };
 
-const SCROLL_POSITIONS = new Map<string, number>();
+type RenderCacheEntry = {
+  source: string;
+  scrollLeft: number;
+  updatedAt: number;
+};
+
+const RENDER_CACHE = new Map<string, RenderCacheEntry>();
+const RENDER_CACHE_TTL_MS = 10_000;
+const SAVE_DEBOUNCE_MS = 600;
 
 export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps) {
+  const scrollKey = useMemo(() => getScrollKey(ctx, el), [ctx, el]);
+  const cachedRender = getFreshRenderCache(scrollKey);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isWritingRef = useRef(false);
-  const [currentSource, setCurrentSource] = useState(source);
+  const isMountedRef = useRef(true);
+  const saveTimerRef = useRef<number | null>(null);
+  const pendingSaveRef = useRef(false);
+  const [isWriting, setIsWriting] = useState(false);
+  const [currentSource, setCurrentSource] = useState(cachedRender?.source ?? source);
+  const currentSourceRef = useRef(currentSource);
   const parsed = useMemo(() => parseQuiddity(currentSource), [currentSource]);
   const rows = useMemo(() => buildHabitRows(parsed.config.habits, parsed.timeline), [parsed.config.habits, parsed.timeline]);
-  const scrollKey = useMemo(() => getScrollKey(ctx, el), [ctx, el]);
   const gridStyle = useMemo(() => ({
     "--quiddity-days": parsed.timeline.length,
     gridTemplateColumns: `minmax(8.5rem, 11rem) repeat(${parsed.timeline.length}, var(--quiddity-cell-size))`
   }) as React.CSSProperties, [parsed.timeline.length]);
 
   useLayoutEffect(() => {
-    const scrollLeft = SCROLL_POSITIONS.get(scrollKey);
-    if (scrollLeft !== undefined && scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollLeft;
+    currentSourceRef.current = currentSource;
+
+    const cached = getFreshRenderCache(scrollKey);
+    if (cached && scrollRef.current) {
+      scrollRef.current.scrollLeft = cached.scrollLeft;
     }
   }, [currentSource, scrollKey]);
 
-  const handleToggle = useCallback(async (habit: Habit, date: string) => {
-    if (isWritingRef.current) return;
+  const flushSave = useCallback(async () => {
+    if (!pendingSaveRef.current || isWritingRef.current) return;
 
+    pendingSaveRef.current = false;
     isWritingRef.current = true;
-    cacheScroll(scrollKey, scrollRef.current);
-    setCurrentSource((previous) => toggleHabitDateInSource(previous, habit.name, date));
+    if (isMountedRef.current) setIsWriting(true);
+    cacheRender(scrollKey, currentSourceRef.current, getScrollLeft(scrollRef.current));
 
     try {
-      const changed = await toggleHabitDateInFile(app, ctx, el, habit.name, date);
+      const changed = await replaceQuiddityBlockInFile(app, ctx, el, currentSourceRef.current);
       if (!changed) {
-        setCurrentSource((previous) => toggleHabitDateInSource(previous, habit.name, date));
+        pendingSaveRef.current = true;
       }
     } catch (error) {
-      setCurrentSource((previous) => toggleHabitDateInSource(previous, habit.name, date));
+      pendingSaveRef.current = true;
       throw error;
     } finally {
-      cacheScroll(scrollKey, scrollRef.current);
+      cacheRender(scrollKey, currentSourceRef.current, getScrollLeft(scrollRef.current));
       isWritingRef.current = false;
+      if (isMountedRef.current) setIsWriting(false);
+
+      if (pendingSaveRef.current && !saveTimerRef.current) {
+        saveTimerRef.current = activeWindow.setTimeout(() => {
+          saveTimerRef.current = null;
+          void flushSave();
+        }, SAVE_DEBOUNCE_MS);
+      }
     }
   }, [app, ctx, el, scrollKey]);
 
+  const scheduleSave = useCallback(() => {
+    pendingSaveRef.current = true;
+
+    if (saveTimerRef.current) {
+      activeWindow.clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = activeWindow.setTimeout(() => {
+      saveTimerRef.current = null;
+      void flushSave();
+    }, SAVE_DEBOUNCE_MS);
+  }, [flushSave]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+
+      if (saveTimerRef.current) {
+        activeWindow.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+
+      if (pendingSaveRef.current) {
+        void flushSave();
+      }
+    };
+  }, [flushSave]);
+
+  const handleToggle = useCallback(async (habit: Habit, date: string) => {
+    const scrollLeft = getScrollLeft(scrollRef.current);
+    setCurrentSource((previous) => {
+      const next = toggleHabitDateInSource(previous, habit.name, date);
+      currentSourceRef.current = next;
+      cacheRender(scrollKey, next, scrollLeft);
+      return next;
+    });
+    scheduleSave();
+  }, [scheduleSave, scrollKey]);
+
   return (
-    <section className="quiddity-root">
+    <section className={`quiddity-root${isWriting ? " is-writing" : ""}`}>
       <Diagnostics parsed={parsed} />
       <div
         className="quiddity-scroll"
-        onScroll={() => cacheScroll(scrollKey, scrollRef.current)}
+        onScroll={() => cacheRender(scrollKey, currentSource, getScrollLeft(scrollRef.current))}
         ref={scrollRef}
       >
         <div className="quiddity-grid" style={gridStyle}>
@@ -149,7 +215,15 @@ const HabitCell = memo(function HabitCell({
     <button
       aria-label={label}
       className={cellClass(cell)}
-      onClick={() => {
+      onClick={(event) => {
+        if (event.detail === 0) {
+          void onToggle(habit, cell.date);
+        }
+      }}
+      onPointerDown={(event) => {
+        if (!event.isPrimary || event.button !== 0) return;
+
+        event.preventDefault();
         void onToggle(habit, cell.date);
       }}
       title={label}
@@ -210,8 +284,28 @@ function cellClass(cell: StreakCell): string {
   return classes.join(" ");
 }
 
-function cacheScroll(key: string, element: HTMLDivElement | null): void {
-  if (element) SCROLL_POSITIONS.set(key, element.scrollLeft);
+function cacheRender(key: string, source: string, scrollLeft: number): void {
+  RENDER_CACHE.set(key, {
+    source,
+    scrollLeft,
+    updatedAt: Date.now()
+  });
+}
+
+function getFreshRenderCache(key: string): RenderCacheEntry | undefined {
+  const cached = RENDER_CACHE.get(key);
+  if (!cached) return undefined;
+
+  if (Date.now() - cached.updatedAt > RENDER_CACHE_TTL_MS) {
+    RENDER_CACHE.delete(key);
+    return undefined;
+  }
+
+  return cached;
+}
+
+function getScrollLeft(element: HTMLDivElement | null): number {
+  return element?.scrollLeft ?? 0;
 }
 
 function getScrollKey(ctx: MarkdownPostProcessorContext, el: HTMLElement): string {

@@ -17,7 +17,14 @@
   border: 1px solid var(--quiddity-border);
   border-radius: var(--radius-s);
   background: var(--background-primary);
+  isolation: isolate;
   scrollbar-gutter: stable;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.quiddity-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .quiddity-grid {
@@ -39,19 +46,44 @@
 .quiddity-date {
   position: sticky;
   top: 0;
-  z-index: 3;
   background: var(--background-secondary);
+}
+
+.quiddity-date {
+  z-index: 1;
+  overflow: hidden;
 }
 
 .quiddity-corner,
 .quiddity-habit-name {
   position: sticky;
   left: 0;
-  z-index: 4;
+  background: var(--background-primary);
+  box-shadow: 1px 0 0 var(--quiddity-border);
+  isolation: isolate;
 }
 
 .quiddity-corner {
-  z-index: 5;
+  z-index: 10;
+  background: var(--background-secondary);
+}
+
+.quiddity-habit-name {
+  z-index: 8;
+}
+
+.quiddity-corner::after,
+.quiddity-habit-name::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: 0;
+  width: 3px;
+  background: inherit;
+  border-right: 1px solid var(--quiddity-border);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .quiddity-date {
@@ -77,6 +109,11 @@
   white-space: nowrap;
 }
 
+.quiddity-root.is-writing .quiddity-cell:hover,
+.quiddity-root.is-writing .quiddity-cell:focus-visible {
+  background: var(--background-primary);
+}
+
 .quiddity-cell {
   position: relative;
   appearance: none;
@@ -90,6 +127,8 @@
   box-shadow: none;
   color: var(--text-on-accent);
   cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 .quiddity-cell:hover,

@@ -46,6 +46,29 @@ export async function toggleHabitDateInFile(
   await app.vault.modify(file, lines.join("\n"));
   return true;
 }
+
+export async function replaceQuiddityBlockInFile(
+  app: App,
+  ctx: MarkdownPostProcessorContext,
+  el: HTMLElement,
+  nextSource: string
+): Promise<boolean> {
+  const section = ctx.getSectionInfo(el);
+  const file = app.vault.getAbstractFileByPath(ctx.sourcePath);
+
+  if (!section || !file || !isTFile(file)) {
+    new Notice("Quiddity could not locate the source block.");
+    return false;
+  }
+
+  const content = await app.vault.read(file);
+  const lines = content.split("\n");
+
+  lines.splice(section.lineStart + 1, section.lineEnd - section.lineStart - 1, ...nextSource.split("\n"));
+  await app.vault.modify(file, lines.join("\n"));
+  return true;
+}
+
 function isTFile(file: unknown): file is TFile {
   return typeof file === "object" && file !== null && "extension" in file;
 }

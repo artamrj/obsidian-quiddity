@@ -107,4 +107,66 @@ assert.doesNotMatch(compactAdded, /^- Exercise:/m);
 const blockAdded = updater.toggleHabitDateInSource(habitsBlock, "Exercise", "2026-01-22");
 assert.match(blockAdded, /^ {2}- Exercise: 2026-01-16\.\.2026-01-18, 2026-01-21\.\.2026-01-22/m);
 
+const noteContent = `Before
+
+\`\`\`quiddity
+from: 2026-01-16
+days: 3
+
+Exercise: 2026-01-16
+\`\`\`
+
+After`;
+const fakeFile = { extension: "md", path: "habit.md" };
+let modifiedContent = "";
+const fakeApp = {
+  vault: {
+    getAbstractFileByPath(path) {
+      return path === fakeFile.path ? fakeFile : null;
+    },
+    async read(file) {
+      assert.equal(file, fakeFile);
+      return noteContent;
+    },
+    async modify(file, content) {
+      assert.equal(file, fakeFile);
+      modifiedContent = content;
+    }
+  }
+};
+const fakeCtx = {
+  sourcePath: fakeFile.path,
+  getSectionInfo() {
+    return { lineStart: 2, lineEnd: 7 };
+  }
+};
+const replaced = await updater.replaceQuiddityBlockInFile(
+  fakeApp,
+  fakeCtx,
+  {},
+  `from: 2026-01-16
+days: 3
+
+Exercise: 2026-01-16..2026-01-18`
+);
+assert.equal(replaced, true);
+assert.equal(modifiedContent, `Before
+
+\`\`\`quiddity
+from: 2026-01-16
+days: 3
+
+Exercise: 2026-01-16..2026-01-18
+\`\`\`
+
+After`);
+
+const missingSection = await updater.replaceQuiddityBlockInFile(
+  fakeApp,
+  { ...fakeCtx, getSectionInfo: () => null },
+  {},
+  habitsBlock
+);
+assert.equal(missingSection, false);
+
 console.log("parser-updater tests passed");
