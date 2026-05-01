@@ -27,13 +27,13 @@
 
   --quiddity-habit-header-font-size: 11px;
   --quiddity-habit-name-font-size: 13px;
-  --quiddity-habit-cell-width: 25px;
+  --quiddity-habit-cell-width: 32px;
   --quiddity-habit-cell-height: 32px;
   --quiddity-habit-name-max-width: 173px;
   --quiddity-habit-name-padding: 8px;
   --quiddity-habit-tick-size: 16px;
   --quiddity-habit-tick-radius: 8px;
-  --quiddity-habit-streak-padding: 4px;
+  --quiddity-habit-streak-padding: 8px;
   --quiddity-habit-tooltip-padding: 2px 6px;
   --quiddity-habit-tooltip-radius: 3px;
 }
@@ -53,10 +53,11 @@
 .quiddity-habit-tracker__table {
   background: var(--quiddity-habit-bg);
   border: var(--quiddity-habit-border);
-  border-radius: 4px;
+  border-radius: 10px;
   display: grid;
   grid-template-columns: var(--quiddity-habit-name-width) minmax(0, 1fr);
   max-width: 100%;
+  overflow: hidden;
   width: 100%;
 }
 
@@ -152,16 +153,16 @@
 }
 
 .quiddity-habit-tracker__cell--date:hover {
-  background: var(--quiddity-habit-header-bg-hover);
-  color: var(--quiddity-habit-header-text-hover);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
 }
 
 .quiddity-habit-tracker__cell--date[data-quiddity-pretty-date]:hover::after {
   background: var(--quiddity-habit-tooltip-bg);
   border-radius: var(--quiddity-habit-tooltip-radius);
-  color: var(--quiddity-habit-header-text-hover);
+  color: var(--text-normal);
   content: attr(data-quiddity-pretty-date);
-  font-size: 13px;
+  font-size: 10px;
   inset-block-start: 100%;
   inset-inline-start: 50%;
   margin-block-start: 4px;
@@ -219,6 +220,7 @@
 .quiddity-habit-tick--ticked .quiddity-habit-tick__inner {
   background: var(--quiddity-habit-bg-ticked);
   border-radius: var(--quiddity-habit-tick-radius);
+  color: #ffffff;
 }
 
 .quiddity-habit-tick--streak {
@@ -246,48 +248,56 @@
 }
 
 .quiddity-action-bar {
-  align-items: center;
+  align-items: self-end;
   background: var(--background-secondary);
-  border: var(--quiddity-habit-border);
-  border-radius: 0 0 4px 4px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
   display: flex;
-  inset-block-start: 100%;
-  inset-inline: 8px;
+  inset-block-end: 16px;
+  inset-inline: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   justify-content: space-between;
   opacity: 0;
-  padding: 8px;
+  padding: 6px 10px;
   pointer-events: none;
   position: absolute;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(4px);
   z-index: 100;
 }
 
 .quiddity-habit-tracker:hover .quiddity-action-bar {
   opacity: 1;
   pointer-events: auto;
+  transform: translateY(0);
 }
 
 .quiddity-action-bar__title {
   color: var(--quiddity-habit-muted-text-color);
   font-weight: 500;
+  font-size: 11px;
 }
 
 .quiddity-action-bar__buttons {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .quiddity-action-bar__button {
   align-items: center;
-  background: var(--interactive-normal);
-  border: var(--quiddity-habit-border);
-  border-radius: 0;
-  color: var(--quiddity-habit-muted-text-color);
-  cursor: default;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  color: var(--text-normal);
+  cursor: pointer;
   display: flex;
   font-size: 11px;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 2px 6px;
+}
+
+.quiddity-action-bar__button:hover {
+  background: var(--background-modifier-hover);
 }
 
 .quiddity-action-bar__button:disabled {

@@ -147,7 +147,6 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
                 className={cell.className}
                 disabled={isUpdating}
                 onClick={() => void handleToggle(row.name, cell.date)}
-                title={`${row.name} - ${cell.date}`}
                 type="button"
               >
                 <span className="quiddity-habit-tick__inner">{cell.label}</span>
