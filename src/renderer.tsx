@@ -1,5 +1,5 @@
 import type { App, MarkdownPostProcessorContext } from "obsidian";
-import { Notice } from "obsidian";
+import { Notice, setIcon } from "obsidian";
 import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { parseQuiddity, toDisplayDay } from "./parser";
@@ -35,11 +35,13 @@ const scrollPositions = new Map<string, number>();
 
 export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const editIconRef = useRef<HTMLSpanElement | null>(null);
   const scrollKeyRef = useRef("");
   const [currentSource, setCurrentSource] = useState(source);
   const [isUpdating, setIsUpdating] = useState(false);
   const parsed = useMemo(() => parseQuiddity(currentSource), [currentSource]);
   const isLivePreview = useMemo(() => detectLivePreview(el), [el]);
+  const nativeEditButton = useLivePreviewEditButton(el, isLivePreview);
   const dateMetas = useMemo(() => buildDateMetas(parsed.timeline), [parsed.timeline]);
   const rows = useMemo(() => buildRows(parsed.config.habits, parsed.timeline), [
     parsed.config.habits,
@@ -50,6 +52,10 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
   useEffect(() => {
     setCurrentSource(source);
   }, [source]);
+
+  useEffect(() => {
+    if (editIconRef.current) setIcon(editIconRef.current, "pencil");
+  }, [isLivePreview]);
 
   useLayoutEffect(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -95,6 +101,15 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
     } finally {
       setIsUpdating(false);
     }
+  }
+
+  function handleEditBlock() {
+    if (!nativeEditButton) {
+      new Notice("Quiddity could not locate Obsidian's edit control.");
+      return;
+    }
+
+    nativeEditButton.click();
   }
 
   return (
@@ -157,17 +172,61 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
       </div>
 
       {isLivePreview && (
-        <div className="quiddity-action-bar" aria-hidden="true">
+        <div className="quiddity-action-bar" role="toolbar" aria-label="Quiddity habit tracker actions">
           <span className="quiddity-action-bar__title">Quiddity Habit Tracker</span>
           <div className="quiddity-action-bar__buttons">
-            <button className="quiddity-action-bar__button" disabled type="button">Updates</button>
-            <button className="quiddity-action-bar__button" disabled type="button">Edit block</button>
-            <button className="quiddity-action-bar__button" disabled type="button">Settings</button>
+            <button
+              aria-label="Edit Quiddity code block"
+              className="quiddity-action-bar__button"
+              disabled={!nativeEditButton}
+              onClick={handleEditBlock}
+              type="button"
+            >
+              <span ref={editIconRef} className="quiddity-action-bar__button-icon" aria-hidden="true" />
+              <span>Edit block</span>
+            </button>
           </div>
         </div>
       )}
     </section>
   );
+}
+
+function useLivePreviewEditButton(el: HTMLElement, isLivePreview: boolean): HTMLElement | null {
+  const [editButton, setEditButton] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isLivePreview) {
+      setEditButton(null);
+      return;
+    }
+
+    const codeBlock = el.closest<HTMLElement>(".cm-preview-code-block");
+    if (!codeBlock) {
+      setEditButton(null);
+      return;
+    }
+
+    codeBlock.classList.add("quiddity-live-preview-code-block");
+
+    const syncEditButton = () => {
+      const nextEditButton = codeBlock.querySelector<HTMLElement>(".edit-block-button");
+      setEditButton((currentEditButton) => (
+        currentEditButton === nextEditButton ? currentEditButton : nextEditButton
+      ));
+    };
+
+    syncEditButton();
+    const observer = new MutationObserver(syncEditButton);
+    observer.observe(codeBlock, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      codeBlock.classList.remove("quiddity-live-preview-code-block");
+    };
+  }, [el, isLivePreview]);
+
+  return editButton;
 }
 
 function HabitName({ name }: { name: string }) {

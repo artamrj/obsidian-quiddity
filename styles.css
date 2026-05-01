@@ -2,6 +2,10 @@
   margin-block: 12px;
 }
 
+.cm-preview-code-block.quiddity-live-preview-code-block .edit-block-button {
+  display: none !important;
+}
+
 .quiddity-habit-tracker {
   color: var(--text-normal);
   font-family: var(--font-interface);
@@ -248,25 +252,28 @@
 }
 
 .quiddity-action-bar {
-  align-items: self-end;
+  align-items: center;
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
-  display: flex;
-  inset-block-end: 16px;
-  inset-inline: 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  justify-content: space-between;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 8px auto 0;
+  max-width: calc(100% - 32px);
   opacity: 0;
   padding: 6px 10px;
   pointer-events: none;
-  position: absolute;
+  position: relative;
   transition: opacity 0.2s ease, transform 0.2s ease;
-  transform: translateY(4px);
-  z-index: 100;
+  transform: translateY(-4px);
+  width: max-content;
+  z-index: 5;
 }
 
-.quiddity-habit-tracker:hover .quiddity-action-bar {
+.quiddity-habit-tracker:hover .quiddity-action-bar,
+.quiddity-habit-tracker:focus-within .quiddity-action-bar {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -296,12 +303,26 @@
   padding: 2px 6px;
 }
 
+.quiddity-action-bar__button-icon {
+  align-items: center;
+  display: flex;
+  height: 14px;
+  justify-content: center;
+  width: 14px;
+}
+
+.quiddity-action-bar__button-icon svg {
+  height: 14px;
+  width: 14px;
+}
+
 .quiddity-action-bar__button:hover {
   background: var(--background-modifier-hover);
 }
 
 .quiddity-action-bar__button:disabled {
-  opacity: 1;
+  cursor: default;
+  opacity: 0.6;
 }
 
 @media (max-width: 520px) {
