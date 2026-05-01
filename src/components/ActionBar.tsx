@@ -35,4 +35,3 @@ export function ActionBar({ isLivePreview, canEdit, onEdit }: ActionBarProps) {
     </div>
   );
 }
-
