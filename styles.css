@@ -7,19 +7,15 @@
    OBSIDIAN INTEGRATION
    ============================================================================= */
 
-.cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover
-  .edit-block-button {
+.cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover .edit-block-button {
   display: none !important;
 }
 
-.markdown-source-view.mod-cm6
-  .cm-embed-block:not(.cm-table-widget, .cm-lang-base):hover {
+.markdown-source-view.mod-cm6 .cm-embed-block:not(.cm-table-widget, .cm-lang-base):hover {
   border-radius: 10px;
 }
 
-.markdown-source-view.mod-cm6
-  .cm-content
-  > .cm-lang-quiddity:hover {
+.markdown-source-view.mod-cm6 .cm-content>.cm-lang-quiddity:hover {
   contain: none !important;
   overflow: visible;
 }
@@ -39,20 +35,34 @@
 
   /* Colors */
   --quiddity-habit-bg: var(--background-primary);
-  --quiddity-habit-bg-ticked: var(--checkbox-color, var(--interactive-accent));
-  --quiddity-habit-count-color: var(--text-on-accent, var(--background-primary));
-  --quiddity-habit-border: 1px solid var(--divider-color, var(--background-modifier-border));
-  --quiddity-habit-icon-ticked: var(--checkbox-marker-color);
-  --quiddity-habit-row-bg-hover: var(--background-modifier-hover, var(--background-secondary));
+  --quiddity-habit-bg-alt: var(--background-primary-alt);
+  --quiddity-habit-bg-muted: var(--background-secondary);
+
+  --quiddity-habit-bg-ticked: var(--interactive-accent);
+  --quiddity-habit-bg-ticked-hover: var(--interactive-accent-hover);
+  --quiddity-habit-icon-ticked: var(--checkbox-marker-color, var(--text-on-accent));
+  --quiddity-habit-count-color: var(--text-on-accent);
+
+  --quiddity-habit-border-color: var(--background-modifier-border);
+  --quiddity-habit-border-color-hover: var(--background-modifier-border-hover);
+  --quiddity-habit-border: 1px solid var(--quiddity-habit-border-color);
+
+  --quiddity-habit-row-bg-hover: var(--background-modifier-hover);
+  --quiddity-habit-header-bg-hover: var(--background-modifier-hover);
+  --quiddity-habit-tick-hover: var(--background-modifier-hover);
+
   --quiddity-habit-highlight-weekend: var(--background-secondary);
   --quiddity-habit-highlight-names: var(--background-secondary);
-  --quiddity-habit-tick-hover: var(--background-modifier-hover);
-  --quiddity-habit-name-text-color: var(--link-color, var(--text-accent, var(--text-normal)));
+
+  --quiddity-habit-name-text-color: var(--text-accent);
+  --quiddity-habit-name-text-color-hover: var(--text-accent-hover);
   --quiddity-habit-date-text-color: var(--text-muted);
-  --quiddity-habit-header-bg-hover: var(--background-modifier-hover);
-  --quiddity-habit-tooltip-bg: var(--background-secondary);
   --quiddity-habit-header-text-hover: var(--text-normal);
   --quiddity-habit-muted-text-color: var(--text-muted);
+  --quiddity-habit-faint-text-color: var(--text-faint);
+
+  --quiddity-habit-tooltip-bg: var(--background-secondary-alt);
+  --quiddity-habit-tooltip-text-color: var(--text-normal);
 
   /* Sizes */
   --quiddity-habit-header-font-size: 11px;
@@ -121,10 +131,8 @@
 .quiddity-habit-tracker__dates-grid {
   display: grid;
   grid-auto-rows: var(--quiddity-habit-cell-height);
-  grid-template-columns: repeat(
-    var(--quiddity-habit-date-columns),
-    var(--quiddity-habit-cell-width)
-  );
+  grid-template-columns: repeat(var(--quiddity-habit-date-columns),
+      var(--quiddity-habit-cell-width));
   min-width: max-content;
   width: max-content;
 }
@@ -203,25 +211,22 @@
 }
 
 .quiddity-habit-tracker__cell--date:hover {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
+  background: var(--quiddity-habit-header-bg-hover);
+  color: var(--quiddity-habit-header-text-hover);
 }
 
 .quiddity-habit-tracker__cell--date[data-quiddity-pretty-date]:hover::after {
-  background: var(--quiddity-habit-tooltip-bg);
-  border-radius: var(--quiddity-habit-tooltip-radius);
-  color: var(--text-normal);
-  content: attr(data-quiddity-pretty-date);
-  font-size: 10px;
-  inset-block-start: 100%;
-  inset-inline-start: 50%;
-  margin-block-start: 4px;
-  padding: var(--quiddity-habit-tooltip-padding);
-  pointer-events: none;
-  position: absolute;
-  transform: translateX(-50%);
-  white-space: nowrap;
   z-index: 30;
+  background: var(--quiddity-habit-header-bg-hover);
+  color: var(--quiddity-habit-header-text-hover);
+  content: attr(data-quiddity-pretty-date);
+  left: 50%;
+  padding: var(--habit-tooltip-padding);
+  position: absolute;
+  top: 100%;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  border-radius: var(--habit-tooltip-radius);
 }
 
 .quiddity-habit-tracker__date-number {
@@ -358,8 +363,7 @@
 }
 
 .cm-lang-quiddity:hover .quiddity-action-bar,
-.cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover
-  .quiddity-action-bar {
+.cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover .quiddity-action-bar {
   opacity: 1;
   pointer-events: all;
   top: 100%;
