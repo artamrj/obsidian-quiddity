@@ -2,33 +2,17 @@ import type { App, MarkdownPostProcessorContext } from "obsidian";
 import { Notice, setIcon } from "obsidian";
 import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { parseQuiddity, toDisplayDay } from "./parser";
+import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
+import { HabitName } from "./components/HabitName";
+import { parseQuiddity } from "./parser";
 import { replaceQuiddityBlockInFile, toggleHabitDateInSource } from "./updater";
+import { buildDateMetas, buildRows } from "./utils/tracker-models";
 
 export type QuiddityRendererProps = {
   source: string;
   app: App;
   ctx: MarkdownPostProcessorContext;
   el: HTMLElement;
-};
-
-type CellModel = {
-  date: string;
-  active: boolean;
-  className: string;
-  label: string;
-};
-
-type RowModel = {
-  name: string;
-  cells: CellModel[];
-};
-
-type DateMeta = {
-  date: string;
-  day: string;
-  className: string;
-  prettyDate: string;
 };
 
 const scrollPositions = new Map<string, number>();
@@ -114,15 +98,7 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
 
   return (
     <section className="quiddity-habit-tracker">
-      {parsed.diagnostics.length > 0 && (
-        <div className="quiddity-diagnostics" role="status">
-          {parsed.diagnostics.map((diagnostic, index) => (
-            <div key={`${diagnostic.line}-${index}`} className="quiddity-diagnostics__item quiddity-diagnostics__item--error">
-              Line {diagnostic.line}: {diagnostic.message}
-            </div>
-          ))}
-        </div>
-      )}
+      <DiagnosticsPanel diagnostics={parsed.diagnostics} />
 
       <div
         className="quiddity-habit-tracker__table"
@@ -227,119 +203,6 @@ function useLivePreviewEditButton(el: HTMLElement, isLivePreview: boolean): HTML
   }, [el, isLivePreview]);
 
   return editButton;
-}
-
-function HabitName({ name }: { name: string }) {
-  return (
-    <div className="quiddity-habit-tracker__cell quiddity-habit-tracker__cell--name" title={name}>
-      <span className="quiddity-habit-tracker__name-text">{name}</span>
-    </div>
-  );
-}
-
-function buildRows(habits: { name: string; entries: string[] }[], timeline: string[]): RowModel[] {
-  return habits.map((habit) => {
-    const activeDates = new Set(habit.entries);
-
-    return {
-      name: habit.name,
-      cells: timeline.map((date, index) => {
-        const active = activeDates.has(date);
-        const previousActive = index > 0 && activeDates.has(timeline[index - 1]);
-        const nextActive = index < timeline.length - 1 && activeDates.has(timeline[index + 1]);
-        const streakLength = active ? countStreakLength(activeDates, timeline, index) : 0;
-        const isStreak = active && (previousActive || nextActive);
-        const className = [
-          "quiddity-habit-tracker__cell",
-          "quiddity-habit-tick",
-          active ? "quiddity-habit-tick--ticked" : "",
-          active && !previousActive && !nextActive ? "quiddity-habit-tick--single" : "",
-          isStreak ? "quiddity-habit-tick--streak" : "",
-          active && !previousActive && nextActive ? "quiddity-habit-tick--streak-start" : "",
-          active && previousActive && nextActive ? "quiddity-habit-tick--streak-middle" : "",
-          active && previousActive && !nextActive ? "quiddity-habit-tick--streak-end" : "",
-          isWeekendDate(date) ? "quiddity-habit-tick--weekend" : ""
-        ].filter(Boolean).join(" ");
-
-        return {
-          date,
-          active,
-          className,
-          label: active && previousActive && !nextActive && streakLength > 1 ? String(streakLength) : ""
-        };
-      })
-    };
-  });
-}
-
-function buildDateMetas(timeline: string[]): DateMeta[] {
-  const today = toLocalDateKey(new Date());
-
-  return timeline.map((date) => {
-    const isWeekend = isWeekendDate(date);
-    const className = [
-      "quiddity-habit-tracker__cell",
-      "quiddity-habit-tracker__cell--date",
-      isWeekend ? "quiddity-habit-tracker__cell--weekend" : "",
-      date === today ? "quiddity-habit-tracker__cell--today" : ""
-    ].filter(Boolean).join(" ");
-
-    return {
-      date,
-      day: toDisplayDay(date),
-      className,
-      prettyDate: formatPrettyDate(date)
-    };
-  });
-}
-
-function countStreakLength(activeDates: Set<string>, timeline: string[], index: number): number {
-  let start = index;
-  let end = index;
-
-  while (start > 0 && activeDates.has(timeline[start - 1])) start -= 1;
-  while (end < timeline.length - 1 && activeDates.has(timeline[end + 1])) end += 1;
-
-  return end - start + 1;
-}
-
-function isWeekendDate(dateKey: string): boolean {
-  const date = toUtcDate(dateKey);
-  if (!date) return false;
-
-  const day = date.getUTCDay();
-  return day === 0 || day === 6;
-}
-
-function formatPrettyDate(dateKey: string): string {
-  const date = toUtcDate(dateKey);
-  if (!date) return dateKey;
-
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-    weekday: "long",
-    year: "numeric"
-  }).format(date);
-}
-
-function toUtcDate(dateKey: string): Date | null {
-  const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-
-  const year = Number.parseInt(match[1], 10);
-  const month = Number.parseInt(match[2], 10);
-  const day = Number.parseInt(match[3], 10);
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-function toLocalDateKey(date: Date): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0")
-  ].join("-");
 }
 
 function detectLivePreview(el: HTMLElement): boolean {

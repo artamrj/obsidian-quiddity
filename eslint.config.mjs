@@ -14,11 +14,11 @@ export default defineConfig([
   },
   ...obsidianmd.configs.recommended,
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
-        project: "./tsconfig.json",
+        project: "./tsconfig.eslint.json",
         ecmaFeatures: {
           jsx: true
         }

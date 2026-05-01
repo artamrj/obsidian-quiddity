@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit --skipLibCheck",
     "check": "npm run lint && npm run typecheck",
     "build": "npm run check && node esbuild.config.mjs production",
-    "test": "node tests/parser-updater.test.mjs",
+    "test": "npm run test:integration && npm run test:unit",
+    "test:integration": "node tests/parser-updater.test.mjs",
+    "test:unit": "vitest run",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [
@@ -27,6 +29,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@eslint/json": "^1.2.0",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
@@ -35,8 +39,10 @@
     "esbuild": "^0.28.0",
     "eslint": "^10.2.1",
     "eslint-plugin-obsidianmd": "^0.2.9",
+    "jsdom": "^27.0.1",
     "obsidian": "^1.12.3",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.1"
+    "typescript-eslint": "^8.59.1",
+    "vitest": "^3.2.4"
   }
 }
