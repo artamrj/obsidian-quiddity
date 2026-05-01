@@ -1,7 +1,8 @@
 import type { App, MarkdownPostProcessorContext } from "obsidian";
-import { Notice, setIcon } from "obsidian";
+import { Notice } from "obsidian";
 import type { CSSProperties } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ActionBar } from "./components/ActionBar";
 import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
 import { HabitName } from "./components/HabitName";
 import { parseQuiddity } from "./parser";
@@ -19,7 +20,6 @@ const scrollPositions = new Map<string, number>();
 
 export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const editIconRef = useRef<HTMLSpanElement | null>(null);
   const scrollKeyRef = useRef("");
   const [currentSource, setCurrentSource] = useState(source);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -36,10 +36,6 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
   useEffect(() => {
     setCurrentSource(source);
   }, [source]);
-
-  useEffect(() => {
-    if (editIconRef.current) setIcon(editIconRef.current, "pencil");
-  }, [isLivePreview]);
 
   useLayoutEffect(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -147,23 +143,11 @@ export function QuiddityRenderer({ app, ctx, el, source }: QuiddityRendererProps
         </div>
       </div>
 
-      {isLivePreview && (
-        <div className="quiddity-action-bar" role="toolbar" aria-label="Quiddity habit tracker actions">
-          <span className="quiddity-action-bar__title">Quiddity Habit Tracker</span>
-          <div className="quiddity-action-bar__buttons">
-            <button
-              aria-label="Edit Quiddity code block"
-              className="quiddity-action-bar__button"
-              disabled={!nativeEditButton}
-              onClick={handleEditBlock}
-              type="button"
-            >
-              <span ref={editIconRef} className="quiddity-action-bar__button-icon" aria-hidden="true" />
-              <span>Edit block</span>
-            </button>
-          </div>
-        </div>
-      )}
+      <ActionBar
+        canEdit={Boolean(nativeEditButton)}
+        isLivePreview={isLivePreview}
+        onEdit={handleEditBlock}
+      />
     </section>
   );
 }
