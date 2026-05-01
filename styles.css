@@ -1,16 +1,32 @@
 /* =============================================================================
    OBSIDIAN QUIDDITY PLUGIN STYLES
-   Habit tracker component styling with Obsidian theme integration
    ============================================================================= */
 
-/* Hide edit button in live preview */
-.cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover
-	.edit-block-button {
-	display: none !important;
-}
 
 /* =============================================================================
-   THEME VARIABLES & GLOBAL STYLES
+   OBSIDIAN INTEGRATION
+   ============================================================================= */
+
+.cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover
+  .edit-block-button {
+  display: none !important;
+}
+
+.markdown-source-view.mod-cm6
+  .cm-embed-block:not(.cm-table-widget, .cm-lang-base):hover {
+  border-radius: 10px;
+}
+
+.markdown-source-view.mod-cm6
+  .cm-content
+  > .cm-lang-quiddity:hover {
+  contain: none !important;
+  overflow: visible;
+}
+
+
+/* =============================================================================
+   THEME VARIABLES & BASE
    ============================================================================= */
 
 .quiddity-habit-tracker {
@@ -21,11 +37,12 @@
   max-width: 100%;
   position: relative;
 
-  /* Color variables */
+  /* Colors */
   --quiddity-habit-bg: var(--background-primary);
   --quiddity-habit-bg-ticked: var(--checkbox-color, var(--interactive-accent));
   --quiddity-habit-count-color: var(--text-on-accent, var(--background-primary));
   --quiddity-habit-border: 1px solid var(--divider-color, var(--background-modifier-border));
+  --quiddity-habit-icon-ticked: var(--checkbox-marker-color);
   --quiddity-habit-row-bg-hover: var(--background-modifier-hover, var(--background-secondary));
   --quiddity-habit-highlight-weekend: var(--background-secondary);
   --quiddity-habit-highlight-names: var(--background-secondary);
@@ -37,7 +54,7 @@
   --quiddity-habit-header-text-hover: var(--text-normal);
   --quiddity-habit-muted-text-color: var(--text-muted);
 
-  /* Size variables */
+  /* Sizes */
   --quiddity-habit-header-font-size: 11px;
   --quiddity-habit-name-font-size: 13px;
   --quiddity-habit-cell-width: 32px;
@@ -51,9 +68,9 @@
   --quiddity-habit-tooltip-radius: 3px;
 }
 
+
 /* =============================================================================
-   DIAGNOSTICS PANEL
-   Error message display
+   DIAGNOSTICS
    ============================================================================= */
 
 .quiddity-diagnostics {
@@ -68,9 +85,9 @@
   color: var(--text-error);
 }
 
+
 /* =============================================================================
-   HABIT TABLE GRID LAYOUT
-   Main container and two-column layout (names + timeline)
+   TABLE LAYOUT
    ============================================================================= */
 
 .quiddity-habit-tracker__table {
@@ -84,7 +101,6 @@
   width: 100%;
 }
 
-/* Left column: habit names sidebar */
 .quiddity-habit-tracker__names {
   background: var(--quiddity-habit-highlight-names);
   border-inline-end: var(--quiddity-habit-border);
@@ -95,7 +111,6 @@
   z-index: 2;
 }
 
-/* Right column: scrollable timeline grid */
 .quiddity-habit-tracker__timeline {
   background: var(--quiddity-habit-bg);
   min-width: 0;
@@ -106,18 +121,22 @@
 .quiddity-habit-tracker__dates-grid {
   display: grid;
   grid-auto-rows: var(--quiddity-habit-cell-height);
-  grid-template-columns: repeat(var(--quiddity-habit-date-columns), var(--quiddity-habit-cell-width));
+  grid-template-columns: repeat(
+    var(--quiddity-habit-date-columns),
+    var(--quiddity-habit-cell-width)
+  );
   min-width: max-content;
   width: max-content;
 }
 
 .quiddity-habit-tracker__dates-grid button:not(.clickable-icon) {
   box-shadow: none;
+  background-color: transparent;
 }
 
+
 /* =============================================================================
-   HABIT CELLS
-   Grid cells styling (dates, corners, habit entries)
+   CELLS
    ============================================================================= */
 
 .quiddity-habit-tracker__cell {
@@ -134,13 +153,16 @@
   position: relative;
 }
 
-/* Corner cell (top-left) and date headers */
 .quiddity-habit-tracker__cell--corner,
 .quiddity-habit-tracker__cell--date {
   border-block-start: 0;
 }
 
-/* Habit name cells */
+
+/* =============================================================================
+   NAME CELLS
+   ============================================================================= */
+
 .quiddity-habit-tracker__cell--name {
   background-color: var(--quiddity-habit-highlight-names);
   border-inline-end: 0;
@@ -166,7 +188,11 @@
   white-space: nowrap;
 }
 
-/* Date header cells */
+
+/* =============================================================================
+   DATE CELLS
+   ============================================================================= */
+
 .quiddity-habit-tracker__cell--date {
   color: var(--quiddity-habit-date-text-color);
   cursor: pointer;
@@ -176,22 +202,6 @@
   z-index: 2;
 }
 
-/* Weekend highlighting */
-.quiddity-habit-tracker__cell--weekend,
-.quiddity-habit-tick--weekend {
-  background-color: var(--quiddity-habit-highlight-weekend);
-}
-
-.quiddity-habit-tracker__cell--weekend {
-  font-weight: 600;
-}
-
-/* Today indicator */
-.quiddity-habit-tracker__cell--today {
-  color: var(--quiddity-habit-name-text-color);
-}
-
-/* Date header hover state and tooltip */
 .quiddity-habit-tracker__cell--date:hover {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
@@ -219,9 +229,27 @@
   text-overflow: ellipsis;
 }
 
+.quiddity-habit-tracker__cell--today {
+  color: var(--quiddity-habit-name-text-color);
+}
+
+
 /* =============================================================================
-   HABIT TICK BUTTONS
-   Toggle buttons for habit entries
+   WEEKEND CELLS
+   ============================================================================= */
+
+.quiddity-habit-tracker__cell--weekend,
+.quiddity-habit-tick--weekend {
+  background-color: var(--quiddity-habit-highlight-weekend);
+}
+
+.quiddity-habit-tracker__cell--weekend {
+  font-weight: 600;
+}
+
+
+/* =============================================================================
+   TICK BUTTONS
    ============================================================================= */
 
 .quiddity-habit-tick {
@@ -249,7 +277,6 @@
   cursor: default;
 }
 
-/* Tick inner content */
 .quiddity-habit-tick__inner {
   align-items: center;
   display: flex;
@@ -259,18 +286,32 @@
   justify-content: center;
   line-height: 1;
   min-width: 0;
-  transition: background-color 0.3s ease, border-radius 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    border-radius 0.3s ease;
   width: 100%;
 }
 
-/* Ticked state (checked) */
+
+/* =============================================================================
+   TICK STATES
+   ============================================================================= */
+
 .quiddity-habit-tick--ticked .quiddity-habit-tick__inner {
   background: var(--quiddity-habit-bg-ticked);
   border-radius: var(--quiddity-habit-tick-radius);
-  color: #ffffff;
+  color: var(--quiddity-habit-icon-ticked)
 }
 
-/* Streak styling (continuous ticked days) */
+.quiddity-habit-tick--single .quiddity-habit-tick__inner {
+  border-radius: var(--quiddity-habit-tick-radius);
+}
+
+
+/* =============================================================================
+   STREAK STATES
+   ============================================================================= */
+
 .quiddity-habit-tick--streak {
   padding-inline: 0;
 }
@@ -291,54 +332,42 @@
   margin-inline-end: var(--quiddity-habit-streak-padding);
 }
 
-/* Single ticked day (no streak) */
-.quiddity-habit-tick--single .quiddity-habit-tick__inner {
-  border-radius: var(--quiddity-habit-tick-radius);
-}
 
 /* =============================================================================
    ACTION BAR
-   Edit button and tracker label in live preview
    ============================================================================= */
 
-  .markdown-source-view.mod-cm6 .cm-embed-block:not(.cm-table-widget, .cm-lang-base):hover {
-        border-radius: 10px;
-    }
-
-.markdown-source-view.mod-cm6 .cm-content > .cm-lang-quiddity:hover {
-    overflow: visible;
-    contain: none !important;
-}
-
-   .cm-lang-quiddity:hover .quiddity-action-bar, .cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover .quiddity-action-bar {
-      opacity: 1;
-    pointer-events: all;
-    top: 100%;
-}
-
 .quiddity-action-bar {
-    display: flex;
-    position: absolute;
-    top: 90%;
-    left: var(--habit-name-padding);
-    right: var(--habit-name-padding);
-    background: var(--background-secondary);
-    border: var(--habit-border);
-    border-radius: 0 0 var(--radius-s) var(--radius-s);
-    padding: var(--habit-name-padding);
-    justify-content: space-between;
-    align-items: center;
-    z-index: 100;
-    font-size: 12px;
-    opacity: 0;
-    transition: all 0.2s ease;
-    box-shadow: var(--shadow-s);
-    pointer-events: none;
+  align-items: center;
+  background: var(--background-secondary);
+  border: var(--habit-border);
+  border-radius: 0 0 var(--radius-s) var(--radius-s);
+  box-shadow: var(--shadow-s);
+  display: flex;
+  font-size: 12px;
+  justify-content: space-between;
+  left: var(--habit-name-padding);
+  opacity: 0;
+  padding: var(--habit-name-padding);
+  pointer-events: none;
+  position: absolute;
+  right: var(--habit-name-padding);
+  top: 90%;
+  transition: all 0.2s ease;
+  z-index: 100;
+}
+
+.cm-lang-quiddity:hover .quiddity-action-bar,
+.cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover
+  .quiddity-action-bar {
+  opacity: 1;
+  pointer-events: all;
+  top: 100%;
 }
 
 
 /* =============================================================================
-   RESPONSIVE STYLES
+   RESPONSIVE
    ============================================================================= */
 
 @media (max-width: 520px) {
