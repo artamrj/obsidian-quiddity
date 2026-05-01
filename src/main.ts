@@ -7,8 +7,7 @@ export default class QuiddityPlugin extends Plugin {
   async onload() {
     this.registerMarkdownCodeBlockProcessor("quiddity", (source, el, ctx) => {
       el.empty();
-      el.addClass("quiddity-host");
-
+      
       const root = createRoot(el);
       root.render(createElement(
         StrictMode,

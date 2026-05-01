@@ -18,8 +18,7 @@ export function ActionBar({ isLivePreview, canEdit, onEdit }: ActionBarProps) {
   if (!isLivePreview) return null;
 
   return (
-    <div className="quiddity-action-bar" role="toolbar" aria-label="Quiddity habit tracker actions">
-      <span className="quiddity-action-bar__title">Quiddity Habit Tracker</span>
+    <div className="quiddity-action-bar" role="toolbar">
       <div className="quiddity-action-bar__buttons">
         <button
           aria-label="Edit Quiddity code block"

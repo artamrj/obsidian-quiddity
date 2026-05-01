@@ -3,14 +3,10 @@
    Habit tracker component styling with Obsidian theme integration
    ============================================================================= */
 
-/* Plugin host spacing */
-.quiddity-host {
-  margin-block: 12px;
-}
-
 /* Hide edit button in live preview */
-.cm-preview-code-block.quiddity-live-preview-code-block .edit-block-button {
-  display: none !important;
+.cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover
+	.edit-block-button {
+	display: none !important;
 }
 
 /* =============================================================================
@@ -113,6 +109,10 @@
   grid-template-columns: repeat(var(--quiddity-habit-date-columns), var(--quiddity-habit-cell-width));
   min-width: max-content;
   width: max-content;
+}
+
+.quiddity-habit-tracker__dates-grid button:not(.clickable-icon) {
+  box-shadow: none;
 }
 
 /* =============================================================================
@@ -301,80 +301,41 @@
    Edit button and tracker label in live preview
    ============================================================================= */
 
+  .markdown-source-view.mod-cm6 .cm-embed-block:not(.cm-table-widget, .cm-lang-base):hover {
+        border-radius: 10px;
+    }
+
+.markdown-source-view.mod-cm6 .cm-content > .cm-lang-quiddity:hover {
+    overflow: visible;
+    contain: none !important;
+}
+
+   .cm-lang-quiddity:hover .quiddity-action-bar, .cm-preview-code-block.markdown-rendered:has(.block-language-quiddity):hover .quiddity-action-bar {
+      opacity: 1;
+    pointer-events: all;
+    top: 100%;
+}
+
 .quiddity-action-bar {
-  align-items: center;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin: 8px auto 0;
-  max-width: calc(100% - 32px);
-  opacity: 0;
-  padding: 6px 10px;
-  pointer-events: none;
-  position: relative;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  transform: translateY(-4px);
-  width: max-content;
-  z-index: 5;
+    display: flex;
+    position: absolute;
+    top: 90%;
+    left: var(--habit-name-padding);
+    right: var(--habit-name-padding);
+    background: var(--background-secondary);
+    border: var(--habit-border);
+    border-radius: 0 0 var(--radius-s) var(--radius-s);
+    padding: var(--habit-name-padding);
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+    font-size: 12px;
+    opacity: 0;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-s);
+    pointer-events: none;
 }
 
-/* Show action bar on hover/focus */
-.quiddity-habit-tracker:hover .quiddity-action-bar,
-.quiddity-habit-tracker:focus-within .quiddity-action-bar {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-}
-
-.quiddity-action-bar__title {
-  color: var(--quiddity-habit-muted-text-color);
-  font-weight: 500;
-  font-size: 11px;
-}
-
-.quiddity-action-bar__buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.quiddity-action-bar__button {
-  align-items: center;
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  color: var(--text-normal);
-  cursor: pointer;
-  display: flex;
-  font-size: 11px;
-  gap: 4px;
-  padding: 2px 6px;
-}
-
-.quiddity-action-bar__button-icon {
-  align-items: center;
-  display: flex;
-  height: 14px;
-  justify-content: center;
-  width: 14px;
-}
-
-.quiddity-action-bar__button-icon svg {
-  height: 14px;
-  width: 14px;
-}
-
-.quiddity-action-bar__button:hover {
-  background: var(--background-modifier-hover);
-}
-
-.quiddity-action-bar__button:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
 
 /* =============================================================================
    RESPONSIVE STYLES

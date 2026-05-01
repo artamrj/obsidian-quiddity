@@ -1,4 +1,3 @@
-import React from "react";
 import type { RowModel, DateMeta } from "../types/renderer";
 
 export type HabitGridProps = {
